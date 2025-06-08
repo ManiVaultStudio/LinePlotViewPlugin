@@ -16,6 +16,7 @@
 #include <QFuture>
 #include <QMutexLocker>
 #include<QTimer>
+#include<QCoreApplication>
 #include<QElapsedTimer>
 
 
@@ -115,9 +116,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
 
     });
 
-    //createData();
-    //createDataFast();
-    createDataOptimized();
+    createData();
+    //createDataOptimized();
 
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -387,9 +387,9 @@ void LinePlotViewPlugin::createData()
                 pointDataset2->setData(datset2Data.data(), numOfPointsDataset2, numDimensions);
                 pointDataset2->setDimensionNames(dimensionNames);
                 events().notifyDatasetDataChanged(pointDataset1);
-                events().notifyDatasetDataDimensionsChanged(pointDataset1);
+              
                 events().notifyDatasetDataChanged(pointDataset2);
-                events().notifyDatasetDataDimensionsChanged(pointDataset2);
+                
                 if (childrenDatasets.count() > 0)
                 {
                     for (const auto& child : childrenDatasets)
@@ -414,9 +414,9 @@ void LinePlotViewPlugin::createData()
                             childPointDataset2->setData(childDatset2Data.data(), numOfPointsDataset2, numDimensions);
                             childPointDataset2->setDimensionNames(dimensionNames);
                             events().notifyDatasetDataChanged(childPointDataset1);
-                            events().notifyDatasetDataDimensionsChanged(childPointDataset1);
+                         
                             events().notifyDatasetDataChanged(childPointDataset2);
-                            events().notifyDatasetDataDimensionsChanged(childPointDataset2);
+                          
                         }
                         else if (child->getDataType() == ClusterType)
                         {
@@ -463,7 +463,7 @@ void LinePlotViewPlugin::createData()
 
                             }
                             events().notifyDatasetDataChanged(childClusterDataset1);
-                            events().notifyDatasetDataDimensionsChanged(childClusterDataset1);
+                            events().notifyDatasetDataChanged(childClusterDataset2);
                         }
                         else
                         {
@@ -624,7 +624,7 @@ void LinePlotViewPlugin::createDataOptimized()
                     td.targetDataset->setData(td.data.data(), td.indices.size(), td.dimensionNames.size());
                     td.targetDataset->setDimensionNames(td.dimensionNames);
                     events().notifyDatasetDataChanged(td.targetDataset);
-                    events().notifyDatasetDataDimensionsChanged(td.targetDataset);
+                    
                     });
                 };
 
@@ -674,7 +674,7 @@ void LinePlotViewPlugin::createDataOptimized()
                             childData1.targetDataset->setData(childData1.data.data(), childData1.indices.size(), childData1.dimensionNames.size());
                             childData1.targetDataset->setDimensionNames(childData1.dimensionNames);
                             events().notifyDatasetDataChanged(childData1.targetDataset);
-                            events().notifyDatasetDataDimensionsChanged(childData1.targetDataset);
+                            
                             });
                         });
 
@@ -684,7 +684,7 @@ void LinePlotViewPlugin::createDataOptimized()
                             childData2.targetDataset->setData(childData2.data.data(), childData2.indices.size(), childData2.dimensionNames.size());
                             childData2.targetDataset->setDimensionNames(childData2.dimensionNames);
                             events().notifyDatasetDataChanged(childData2.targetDataset);
-                            events().notifyDatasetDataDimensionsChanged(childData2.targetDataset);
+                            
                             });
                         });
 
@@ -735,9 +735,9 @@ void LinePlotViewPlugin::createDataOptimized()
                     }
 
                     events().notifyDatasetDataChanged(childClusterDataset1);
-                    events().notifyDatasetDataDimensionsChanged(childClusterDataset1);
+                  
                     events().notifyDatasetDataChanged(childClusterDataset2);
-                    events().notifyDatasetDataDimensionsChanged(childClusterDataset2);
+                  
                 }
             }
 
@@ -768,16 +768,19 @@ void LinePlotViewPlugin::createDataOptimized()
     }
 
     // Additional safety wait
-    QThread::sleep(1);
-    QCoreApplication::processEvents();
+// Ensure all events are processed before deletion
+    for (int i = 0; i < 20; ++i) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+        QThread::msleep(10);
+    }
 
+    // Now it is safe to delete
     for (const auto& dataset : datasetsToRemove)
     {
         qDebug() << "Removing dataset with group index 666";
         mv::events().notifyDatasetAboutToBeRemoved(dataset);
         mv::data().removeDataset(dataset);
     }
-
 
     qDebug() << "LinePlotViewPlugin::createDataOptimized: Method execution time:" << methodTimer.elapsed() << "ms";
 }
@@ -831,9 +834,9 @@ void LinePlotViewPlugin::processChildDataset(
         // Notify changes
         QMetaObject::invokeMethod(this, [this, childPointDataset1, childPointDataset2]() {
             events().notifyDatasetDataChanged(childPointDataset1);
-            events().notifyDatasetDataDimensionsChanged(childPointDataset1);
+         
             events().notifyDatasetDataChanged(childPointDataset2);
-            events().notifyDatasetDataDimensionsChanged(childPointDataset2);
+           
             }, Qt::BlockingQueuedConnection);
     }
     else if (child->getDataType() == ClusterType)
@@ -895,7 +898,7 @@ void LinePlotViewPlugin::processChildDataset(
         // Notify changes
         QMetaObject::invokeMethod(this, [this, childClusterDataset1]() {
             events().notifyDatasetDataChanged(childClusterDataset1);
-            events().notifyDatasetDataDimensionsChanged(childClusterDataset1);
+          
             }, Qt::BlockingQueuedConnection);
     }
     else

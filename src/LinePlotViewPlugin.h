@@ -8,7 +8,7 @@
 #include <actions/PluginStatusBarAction.h>
 
 #include "SettingsAction.h"
-
+#include<unordered_set>
 #include <QWidget>
 
 /** All plugin related classes are in the ManiVault plugin namespace */
@@ -48,7 +48,19 @@ public:
 
 private:
     void createData();
-
+    void createDataFast();
+    void processChildDataset(
+        const mv::Dataset<mv::DatasetImpl>& child,
+        const mv::Dataset<Points>& pointDataset1,
+        const mv::Dataset<Points>& pointDataset2,
+        const std::vector<int>& dataset1Indices,
+        const std::vector<int>& dataset2Indices,
+        const std::unordered_set<int>& dataset1Lookup,
+        const std::unordered_set<int>& dataset2Lookup,
+        int numDimensions,
+        const std::vector<QString>& dimensionNames,
+        const std::vector<int>& dimensionIndices);
+    void createDataOptimized();
     QString getCurrentDataSetID() const;
 
 protected:

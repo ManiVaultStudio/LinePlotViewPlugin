@@ -116,8 +116,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
 
     });
 
-    createData();
-    //createDataOptimized();
+    //createData();
+    createDataOptimized();
 
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -405,14 +405,22 @@ void LinePlotViewPlugin::createData()
                             childPointDataset2->setGroupIndex(2);
                             events().notifyDatasetAdded(childPointDataset1);
                             events().notifyDatasetAdded(childPointDataset2);
-                            std::vector<float> childDatset1Data(numOfPointsDataset1 * numDimensions);
-                            std::vector<float> childDatset2Data(numOfPointsDataset2 * numDimensions);
-                            childDatasetFull->populateDataForDimensions(childDatset1Data, dimensionIndices, dataset1Indices);
-                            childDatasetFull->populateDataForDimensions(childDatset2Data, dimensionIndices, dataset2Indices);
-                            childPointDataset1->setData(childDatset1Data.data(), numOfPointsDataset1, numDimensions);
-                            childPointDataset1->setDimensionNames(dimensionNames);
-                            childPointDataset2->setData(childDatset2Data.data(), numOfPointsDataset2, numDimensions);
-                            childPointDataset2->setDimensionNames(dimensionNames);
+                            int numDimensionsChild = childDatasetFull->getNumDimensions();
+                            auto dimensionNamesChild = childDatasetFull->getDimensionNames();
+                            std::vector<int> dimensionIndicesChild;
+                            for (int i = 0; i < numDimensionsChild; ++i)
+                            {
+                                dimensionIndicesChild.push_back((i));
+                            }
+
+                            std::vector<float> childDatset1Data(numOfPointsDataset1 * numDimensionsChild);
+                            std::vector<float> childDatset2Data(numOfPointsDataset2 * numDimensionsChild);
+                            childDatasetFull->populateDataForDimensions(childDatset1Data, dimensionIndicesChild, dataset1Indices);
+                            childDatasetFull->populateDataForDimensions(childDatset2Data, dimensionIndicesChild, dataset2Indices);
+                            childPointDataset1->setData(childDatset1Data.data(), numOfPointsDataset1, numDimensionsChild);
+                            childPointDataset1->setDimensionNames(dimensionNamesChild);
+                            childPointDataset2->setData(childDatset2Data.data(), numOfPointsDataset2, numDimensionsChild);
+                            childPointDataset2->setDimensionNames(dimensionNamesChild);
                             events().notifyDatasetDataChanged(childPointDataset1);
                          
                             events().notifyDatasetDataChanged(childPointDataset2);
@@ -480,7 +488,7 @@ void LinePlotViewPlugin::createData()
         }
     }
     
-    if (1)
+    if (0)
     {
         for (const auto& dataset : datasets)
         {
@@ -600,7 +608,12 @@ void LinePlotViewPlugin::createDataOptimized()
                 Dataset<Points> targetDataset;
                 std::vector<QString> dimensionNames;
             };
-
+            struct ThreadDataChild {
+                std::vector<float> dataChild;
+                std::vector<int> indices;
+                Dataset<Points> targetDatasetChild;
+                std::vector<QString> dimensionNamesChild;
+            };
             // Prepare thread data
             ThreadData data1{
                 std::vector<float>(dataset1Indices.size() * numDimensions),
@@ -652,38 +665,46 @@ void LinePlotViewPlugin::createDataOptimized()
                     events().notifyDatasetAdded(childPointDataset1);
                     events().notifyDatasetAdded(childPointDataset2);
 
+                    int numDimensionsChild = childDatasetFull->getNumDimensions();
+                    auto dimensionNamesChild = childDatasetFull->getDimensionNames();
+                    std::vector<int> dimensionIndicesChild;
+                    for (int i = 0; i < numDimensionsChild; ++i)
+                    {
+                        dimensionIndicesChild.push_back((i));
+                    }
+
                     // Prepare child thread data
-                    ThreadData childData1{
-                        std::vector<float>(dataset1Indices.size() * numDimensions),
+                    ThreadDataChild childData1{
+                        std::vector<float>(dataset1Indices.size() * numDimensionsChild),
                         dataset1Indices,
                         childPointDataset1,
-                        dimensionNames
+                        dimensionNamesChild
                     };
 
-                    ThreadData childData2{
-                        std::vector<float>(dataset2Indices.size() * numDimensions),
+                    ThreadDataChild childData2{
+                        std::vector<float>(dataset2Indices.size() * numDimensionsChild),
                         dataset2Indices,
                         childPointDataset2,
-                        dimensionNames
+                        dimensionNamesChild
                     };
 
                     // Process child data in parallel
                     QFuture<void> childFuture1 = QtConcurrent::run([&]() {
-                        childDatasetFull->populateDataForDimensions(childData1.data, dimensionIndices, childData1.indices);
+                        childDatasetFull->populateDataForDimensions(childData1.dataChild, dimensionIndicesChild, childData1.indices);
                         QMetaObject::invokeMethod(this, [&]() {
-                            childData1.targetDataset->setData(childData1.data.data(), childData1.indices.size(), childData1.dimensionNames.size());
-                            childData1.targetDataset->setDimensionNames(childData1.dimensionNames);
-                            events().notifyDatasetDataChanged(childData1.targetDataset);
+                            childData1.targetDatasetChild->setData(childData1.dataChild.data(), childData1.indices.size(), childData1.dimensionNamesChild.size());
+                            childData1.targetDatasetChild->setDimensionNames(childData1.dimensionNamesChild);
+                            events().notifyDatasetDataChanged(childData1.targetDatasetChild);
                             
                             });
                         });
 
                     QFuture<void> childFuture2 = QtConcurrent::run([&]() {
-                        childDatasetFull->populateDataForDimensions(childData2.data, dimensionIndices, childData2.indices);
+                        childDatasetFull->populateDataForDimensions(childData2.dataChild, dimensionIndicesChild, childData2.indices);
                         QMetaObject::invokeMethod(this, [&]() {
-                            childData2.targetDataset->setData(childData2.data.data(), childData2.indices.size(), childData2.dimensionNames.size());
-                            childData2.targetDataset->setDimensionNames(childData2.dimensionNames);
-                            events().notifyDatasetDataChanged(childData2.targetDataset);
+                            childData2.targetDatasetChild->setData(childData2.dataChild.data(), childData2.indices.size(), childData2.dimensionNamesChild.size());
+                            childData2.targetDatasetChild->setDimensionNames(childData2.dimensionNamesChild);
+                            events().notifyDatasetDataChanged(childData2.targetDatasetChild);
                             
                             });
                         });

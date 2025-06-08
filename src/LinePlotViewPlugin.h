@@ -4,7 +4,7 @@
 #include <Dataset.h>
 #include <widgets/DropWidget.h>
 #include <PointData/PointData.h>
-
+#include <ClusterData/ClusterData.h>
 #include <actions/PluginStatusBarAction.h>
 
 #include "SettingsAction.h"

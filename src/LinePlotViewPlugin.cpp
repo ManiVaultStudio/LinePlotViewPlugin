@@ -528,10 +528,8 @@ void LinePlotViewPlugin::createDataOptimized()
         return;
     }
 
-    // Container to collect datasets for notifyDatasetDataChanged
     mv::Datasets datasetsToNotify;
 
-    // Step 1: Collect indices
     std::vector<int> dataset1Indices, dataset2Indices;
     qDebug() << "createDataOptimized: Step 1 - Collect indices";
 
@@ -539,10 +537,8 @@ void LinePlotViewPlugin::createDataOptimized()
         qDebug() << "Checking dataset" << ds->getGuiName() << "type" << ds->getDataType().getTypeString();
         if (ds->getDataType() == ClusterType && ds->getGuiName() == "brain_section_label") {
             Dataset<Clusters> clusterDs = ds->getFullDataset<Clusters>();
-            if (!clusterDs.isValid()) {
-                qDebug() << "Invalid cluster dataset!";
-                return;
-            }
+            if (!clusterDs.isValid()) return;
+
             auto clusters = clusterDs->getClusters();
             qDebug() << "clusters.size() =" << clusters.size();
 
@@ -585,17 +581,13 @@ void LinePlotViewPlugin::createDataOptimized()
         valueToIndex2[dataset2Indices[i]] = i;
     qDebug() << "Step 1 complete, lookup sets created";
 
-    // Step 2: Process main Points dataset
     qDebug() << "Step 2 - Process main Points dataset";
     for (const auto& ds : datasets) {
         if (ds->getDataType() == PointType && ds->getGuiName() == "Xenium-CJ23") {
             Dataset<Points> mainDs = ds->getFullDataset<Points>();
-            if (!mainDs.isValid()) {
-                qDebug() << "Invalid main Points dataset!";
-                return;
-            }
-            mainDs->setGroupIndex(666);
+            if (!mainDs.isValid()) return;
 
+            mainDs->setGroupIndex(666);
             auto children = ds->getChildren();
             qDebug() << "childrenDatasets.size() =" << children.size();
 
@@ -604,8 +596,7 @@ void LinePlotViewPlugin::createDataOptimized()
             std::vector<int> allDims(numDim);
             std::iota(allDims.begin(), allDims.end(), 0);
 
-            // Create split datasets
-            auto createSplit = [&](const QString& suffix, int group)->Dataset<Points> {
+            auto createSplit = [&](const QString& suffix, int group) -> Dataset<Points> {
                 auto p = mv::data().createDataset("Points", suffix);
                 p->setGroupIndex(group);
                 events().notifyDatasetAdded(p);
@@ -622,28 +613,29 @@ void LinePlotViewPlugin::createDataOptimized()
                 std::vector<QString> dimNames;
             };
 
-            ThreadData t1{ std::vector<float>(dataset1Indices.size() * numDim),
-                           dataset1Indices, ds1, dimNames };
-            ThreadData t2{ std::vector<float>(dataset2Indices.size() * numDim),
-                           dataset2Indices, ds2, dimNames };
+            ThreadData t1{ std::vector<float>(dataset1Indices.size() * numDim), dataset1Indices, ds1, dimNames };
+            ThreadData t2{ std::vector<float>(dataset2Indices.size() * numDim), dataset2Indices, ds2, dimNames };
 
-            // Instead of calling notifyDatasetDataChanged inside process, just collect the dataset
-            auto process = [this, &mainDs, &allDims, &datasetsToNotify](ThreadData td) {
+            auto process = [mainDs, &allDims](ThreadData td) {
                 mainDs->populateDataForDimensions(td.data, allDims, td.indices);
-                QMetaObject::invokeMethod(this, [td = std::move(td), &datasetsToNotify]() mutable {
-                    auto full = td.target->getFullDataset<Points>();
-                    if (full.isValid()) {
-                        full->setData(td.data.data(), td.indices.size(), td.dimNames.size());
-                        full->setDimensionNames(td.dimNames);
-                        datasetsToNotify.push_back(td.target); // collect for later notification
-                    }
-                    });
+                return td;
                 };
 
-            QFuture<void> f1 = QtConcurrent::run(process, std::move(t1));
-            QFuture<void> f2 = QtConcurrent::run(process, std::move(t2));
+            QFuture<ThreadData> f1 = QtConcurrent::run(process, std::move(t1));
+            QFuture<ThreadData> f2 = QtConcurrent::run(process, std::move(t2));
 
             QVector<QFuture<void>> childFutures;
+
+            struct CompletedChild {
+                Dataset<Points> tgt;
+                std::vector<float> data;
+                std::vector<QString> dims;
+                int numDim;
+            };
+
+            QMutex resultMutex;
+            std::vector<CompletedChild> completedChildren;
+
             int idx = 0;
             for (const auto& child : children) {
                 qDebug() << "Processing child" << idx
@@ -652,10 +644,8 @@ void LinePlotViewPlugin::createDataOptimized()
 
                 if (child->getDataType() == PointType) {
                     Dataset<Points> childFull = child->getFullDataset<Points>();
-                    if (!childFull.isValid()) {
-                        qDebug() << "Invalid child Points dataset!";
-                        continue;
-                    }
+                    if (!childFull.isValid()) continue;
+
                     childFull->setGroupIndex(666);
 
                     auto makeChildTargets = [&](Dataset<Points> base, Dataset<Points>& parentSplit) {
@@ -680,42 +670,25 @@ void LinePlotViewPlugin::createDataOptimized()
                     std::vector<int> dims2(nDim2);
                     std::iota(dims2.begin(), dims2.end(), 0);
 
-                    struct CData {
-                        std::vector<float> data;
-                        std::vector<int> indices;
-                        Dataset<Points> tgt;
-                        std::vector<QString> dims;
-                    };
+                    auto spawnChild = [childFull, dims2, nDim2, &resultMutex, &completedChildren]
+                    (std::vector<int> indices, Dataset<Points> tgt, std::vector<QString> dims) {
+                        return [=, &resultMutex, &completedChildren]() mutable {
+                            std::vector<float> data(indices.size() * nDim2);
+                            childFull->populateDataForDimensions(data, dims2, indices);
+                            CompletedChild cc{ tgt, std::move(data), dims, nDim2 };
 
-                    CData cd1{ {}, dataset1Indices, cp1, dn2 };
-                    cd1.data.resize(cd1.indices.size() * nDim2);
-                    CData cd2{ {}, dataset2Indices, cp2, dn2 };
-                    cd2.data.resize(cd2.indices.size() * nDim2);
-
-                    auto spawnChild = [this, childFull, dims2, nDim2, &datasetsToNotify](CData cd) {
-                        return [this, childFull, cd, dims2, nDim2, &datasetsToNotify]() mutable {
-                            childFull->populateDataForDimensions(cd.data, dims2, cd.indices);
-                            QMetaObject::invokeMethod(this, [cd = std::move(cd), nDim2, &datasetsToNotify]() mutable {
-                                auto full = cd.tgt->getFullDataset<Points>();
-                                if (full.isValid()) {
-                                    full->setData(cd.data.data(), cd.indices.size(), nDim2);
-                                    full->setDimensionNames(cd.dims);
-                                    datasetsToNotify.push_back(cd.tgt); // collect for later notification
-                                }
-                                });
+                            QMutexLocker locker(&resultMutex);
+                            completedChildren.push_back(std::move(cc));
                             };
                         };
 
-                    childFutures << QtConcurrent::run(spawnChild(cd1));
-                    childFutures << QtConcurrent::run(spawnChild(cd2));
+                    childFutures << QtConcurrent::run(spawnChild(dataset1Indices, cp1, dn2));
+                    childFutures << QtConcurrent::run(spawnChild(dataset2Indices, cp2, dn2));
                 }
                 else if (child->getDataType() == ClusterType) {
                     qDebug() << "Processing cluster-type child" << idx;
                     Dataset<Clusters> cFull = child->getFullDataset<Clusters>();
-                    if (!cFull.isValid()) {
-                        qDebug() << "Invalid child Clusters dataset!";
-                        continue;
-                    }
+                    if (!cFull.isValid()) continue;
                     cFull->setGroupIndex(666);
 
                     auto makeChildCluster = [&](Dataset<Points>& parentSplit) {
@@ -732,11 +705,11 @@ void LinePlotViewPlugin::createDataOptimized()
                     for (const auto& cl : cFull->getClusters()) {
                         std::vector<std::seed_seq::result_type> i1, i2;
                         const auto& indices = cl.getIndices();
-                        for (int i : cl.getIndices()) {
+                        for (int i : indices) {
                             if (auto it = valueToIndex1.find(i); it != valueToIndex1.end())
-                                i1.push_back(it->second);  // Index in dataset1Indices
+                                i1.push_back(it->second);
                             else if (auto it = valueToIndex2.find(i); it != valueToIndex2.end())
-                                i2.push_back(it->second);  // Index in dataset2Indices
+                                i2.push_back(it->second);
                         }
                         Cluster a = cl, b = cl;
                         a.setIndices(i1);
@@ -744,6 +717,7 @@ void LinePlotViewPlugin::createDataOptimized()
                         cl1->addCluster(a);
                         cl2->addCluster(b);
                     }
+
                     datasetsToNotify.push_back(cl1);
                     datasetsToNotify.push_back(cl2);
                     qDebug() << "Finished processing cluster-type child" << idx;
@@ -751,11 +725,32 @@ void LinePlotViewPlugin::createDataOptimized()
                 ++idx;
             }
 
-            f1.waitForFinished();
-            f2.waitForFinished();
+            ThreadData td1 = f1.result();
+            ThreadData td2 = f2.result();
+
+            auto setData = [&](ThreadData& td) {
+                auto full = td.target->getFullDataset<Points>();
+                if (full.isValid()) {
+                    full->setData(td.data.data(), td.indices.size(), td.dimNames.size());
+                    full->setDimensionNames(td.dimNames);
+                    datasetsToNotify.push_back(td.target);
+                }
+                };
+
+            setData(td1);
+            setData(td2);
+
             for (auto& cf : childFutures) cf.waitForFinished();
 
-            // Sequentially notify all datasets after all processing is finished
+            for (auto& cc : completedChildren) {
+                auto full = cc.tgt->getFullDataset<Points>();
+                if (full.isValid()) {
+                    full->setData(cc.data.data(), cc.data.size() / cc.numDim, cc.numDim);
+                    full->setDimensionNames(cc.dims);
+                    datasetsToNotify.push_back(cc.tgt);
+                }
+            }
+
             for (auto& dsPtr : datasetsToNotify) {
                 if (dsPtr.isValid())
                     events().notifyDatasetDataChanged(dsPtr);
@@ -769,3 +764,4 @@ void LinePlotViewPlugin::createDataOptimized()
     qDebug() << "createDataOptimized: execution time =" << methodTimer.elapsed() << "ms";
     qDebug() << "createDataOptimized: EXIT";
 }
+

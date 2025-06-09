@@ -18,6 +18,7 @@
 #include<QTimer>
 #include<QCoreApplication>
 #include<QElapsedTimer>
+#include<set>
 
 
 Q_PLUGIN_METADATA(IID "studio.manivault.LinePlotViewPlugin")
@@ -348,8 +349,11 @@ void LinePlotViewPlugin::createData()
         return;
     }
 
-    std::unordered_set<int> dataset1Set(dataset1Indices.begin(), dataset1Indices.end());
-    std::unordered_set<int> dataset2Set(dataset2Indices.begin(), dataset2Indices.end());
+    std::unordered_map<int, int> valueToIndex1, valueToIndex2;
+    for (int i = 0; i < dataset1Indices.size(); ++i)
+        valueToIndex1[dataset1Indices[i]] = i;
+    for (int i = 0; i < dataset2Indices.size(); ++i)
+        valueToIndex2[dataset2Indices[i]] = i;
     qDebug() << "LinePlotViewPlugin::createData: Created dataset1Set and dataset2Set";
 
     // === Process main dataset ===
@@ -459,13 +463,11 @@ void LinePlotViewPlugin::createData()
                     std::vector<std::seed_seq::result_type> indices1;
                     std::vector<std::seed_seq::result_type> indices2;
 
-                    for (auto index : indices) {
-                        if (dataset1Set.contains(index)) {
-                            indices1.push_back(index);
-                        }
-                        else if (dataset2Set.contains(index)) {
-                            indices2.push_back(index);
-                        }
+                    for (int i : indices) {
+                        if (auto it = valueToIndex1.find(i); it != valueToIndex1.end())
+                            indices1.push_back(it->second);  // Index in dataset1Indices
+                        else if (auto it = valueToIndex2.find(i); it != valueToIndex2.end())
+                            indices2.push_back(it->second);  // Index in dataset2Indices
                     }
 
                     qDebug() << "LinePlotViewPlugin::createData: Cluster" << clusterIdx << "name:" << name
@@ -576,8 +578,11 @@ void LinePlotViewPlugin::createDataOptimized()
         return;
     }
 
-    std::unordered_set<int> lookup1(dataset1Indices.begin(), dataset1Indices.end());
-    std::unordered_set<int> lookup2(dataset2Indices.begin(), dataset2Indices.end());
+    std::unordered_map<int, int> valueToIndex1, valueToIndex2;
+    for (int i = 0; i < dataset1Indices.size(); ++i)
+        valueToIndex1[dataset1Indices[i]] = i;
+    for (int i = 0; i < dataset2Indices.size(); ++i)
+        valueToIndex2[dataset2Indices[i]] = i;
     qDebug() << "Step 1 complete, lookup sets created";
 
     // Step 2: Process main Points dataset
@@ -726,9 +731,12 @@ void LinePlotViewPlugin::createDataOptimized()
 
                     for (const auto& cl : cFull->getClusters()) {
                         std::vector<std::seed_seq::result_type> i1, i2;
+                        const auto& indices = cl.getIndices();
                         for (int i : cl.getIndices()) {
-                            if (lookup1.count(i)) i1.push_back(i);
-                            else if (lookup2.count(i)) i2.push_back(i);
+                            if (auto it = valueToIndex1.find(i); it != valueToIndex1.end())
+                                i1.push_back(it->second);  // Index in dataset1Indices
+                            else if (auto it = valueToIndex2.find(i); it != valueToIndex2.end())
+                                i2.push_back(it->second);  // Index in dataset2Indices
                         }
                         Cluster a = cl, b = cl;
                         a.setIndices(i1);

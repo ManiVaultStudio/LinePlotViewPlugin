@@ -590,7 +590,7 @@ void LinePlotViewPlugin::createDataOptimized()
             std::vector<int> dimensionIndices;
             dimensionIndices.reserve(numDimensions);
             for (int i = 0; i < numDimensions; ++i)
-                dimensionIndices.push_back(static_cast<float>(i));
+                dimensionIndices.push_back((i));
 
             // Create main datasets in main thread
             Dataset<Points> pointDataset1 = mv::data().createDataset("Points", "Section1_Xenium-CJ23");
@@ -779,14 +779,14 @@ void LinePlotViewPlugin::createDataOptimized()
     }
 
     // Step 3: Clean up old datasets in main thread
-    QVector<Dataset<DatasetImpl>> datasetsToRemove;
+    /*QVector<Dataset<DatasetImpl>> datasetsToRemove;
     for (const auto& dataset : datasets)
     {
         if (dataset->getGroupIndex() == 666)
         {
             datasetsToRemove.append(dataset);
         }
-    }
+    }*/
 
     // Additional safety wait
 // Ensure all events are processed before deletion
@@ -796,12 +796,12 @@ void LinePlotViewPlugin::createDataOptimized()
     }
 
     // Now it is safe to delete
-    for (const auto& dataset : datasetsToRemove)
+    /*for (const auto& dataset : datasetsToRemove)
     {
         qDebug() << "Removing dataset with group index 666";
         mv::events().notifyDatasetAboutToBeRemoved(dataset);
         mv::data().removeDataset(dataset);
-    }
+    }*/
 
     qDebug() << "LinePlotViewPlugin::createDataOptimized: Method execution time:" << methodTimer.elapsed() << "ms";
 }

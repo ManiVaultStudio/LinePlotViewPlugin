@@ -526,6 +526,9 @@ void LinePlotViewPlugin::createDataOptimized()
         return;
     }
 
+    // Container to collect datasets for notifyDatasetDataChanged
+    mv::Datasets datasetsToNotify;
+
     // Step 1: Collect indices
     std::vector<int> dataset1Indices, dataset2Indices;
     qDebug() << "createDataOptimized: Step 1 - Collect indices";
@@ -619,14 +622,15 @@ void LinePlotViewPlugin::createDataOptimized()
             ThreadData t2{ std::vector<float>(dataset2Indices.size() * numDim),
                            dataset2Indices, ds2, dimNames };
 
-            auto process = [this, &mainDs, &allDims](ThreadData td) {
+            // Instead of calling notifyDatasetDataChanged inside process, just collect the dataset
+            auto process = [this, &mainDs, &allDims, &datasetsToNotify](ThreadData td) {
                 mainDs->populateDataForDimensions(td.data, allDims, td.indices);
-                QMetaObject::invokeMethod(this, [td = std::move(td)]() mutable {
+                QMetaObject::invokeMethod(this, [td = std::move(td), &datasetsToNotify]() mutable {
                     auto full = td.target->getFullDataset<Points>();
                     if (full.isValid()) {
                         full->setData(td.data.data(), td.indices.size(), td.dimNames.size());
                         full->setDimensionNames(td.dimNames);
-                        mv::events().notifyDatasetDataChanged(td.target);
+                        datasetsToNotify.push_back(td.target); // collect for later notification
                     }
                     });
                 };
@@ -683,15 +687,15 @@ void LinePlotViewPlugin::createDataOptimized()
                     CData cd2{ {}, dataset2Indices, cp2, dn2 };
                     cd2.data.resize(cd2.indices.size() * nDim2);
 
-                    auto spawnChild = [this, childFull, dims2, nDim2](CData cd) {
-                        return [this, childFull, cd, dims2, nDim2]() mutable {
+                    auto spawnChild = [this, childFull, dims2, nDim2, &datasetsToNotify](CData cd) {
+                        return [this, childFull, cd, dims2, nDim2, &datasetsToNotify]() mutable {
                             childFull->populateDataForDimensions(cd.data, dims2, cd.indices);
-                            QMetaObject::invokeMethod(this, [cd = std::move(cd), nDim2]() mutable {
+                            QMetaObject::invokeMethod(this, [cd = std::move(cd), nDim2, &datasetsToNotify]() mutable {
                                 auto full = cd.tgt->getFullDataset<Points>();
                                 if (full.isValid()) {
                                     full->setData(cd.data.data(), cd.indices.size(), nDim2);
                                     full->setDimensionNames(cd.dims);
-                                    mv::events().notifyDatasetDataChanged(cd.tgt);
+                                    datasetsToNotify.push_back(cd.tgt); // collect for later notification
                                 }
                                 });
                             };
@@ -732,8 +736,8 @@ void LinePlotViewPlugin::createDataOptimized()
                         cl1->addCluster(a);
                         cl2->addCluster(b);
                     }
-                    events().notifyDatasetDataChanged(cl1);
-                    events().notifyDatasetDataChanged(cl2);
+                    datasetsToNotify.push_back(cl1);
+                    datasetsToNotify.push_back(cl2);
                     qDebug() << "Finished processing cluster-type child" << idx;
                 }
                 ++idx;
@@ -742,6 +746,12 @@ void LinePlotViewPlugin::createDataOptimized()
             f1.waitForFinished();
             f2.waitForFinished();
             for (auto& cf : childFutures) cf.waitForFinished();
+
+            // Sequentially notify all datasets after all processing is finished
+            for (auto& dsPtr : datasetsToNotify) {
+                if (dsPtr.isValid())
+                    events().notifyDatasetDataChanged(dsPtr);
+            }
 
             QCoreApplication::processEvents();
             break;

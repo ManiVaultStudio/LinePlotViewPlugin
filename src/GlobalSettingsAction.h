@@ -22,7 +22,6 @@ namespace mv {
 class GlobalSettingsAction : public mv::gui::PluginGlobalSettingsGroupAction
 {
 public:
-
     /**
      * Construct with pointer to \p parent object and \p pluginFactory
      * @param parent Pointer to parent object

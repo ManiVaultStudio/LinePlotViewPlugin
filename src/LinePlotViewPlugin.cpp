@@ -116,8 +116,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
 
     });
 
-    createData();
-    //createDataOptimized();
+    //createData();
+    createDataOptimized();
 
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -296,534 +296,458 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
 
     return pluginTriggerActions;
 }
+
 void LinePlotViewPlugin::createData()
 {
+    qDebug() << "LinePlotViewPlugin::createData: ENTER";
     QElapsedTimer methodTimer;
     methodTimer.start();
     auto datasets = mv::data().getAllDatasets();
+    qDebug() << "LinePlotViewPlugin::createData: datasets.size() =" << datasets.size();
 
-    if (datasets.count() < 0)
-    {
+    if (datasets.isEmpty()) {
         qDebug() << "LinePlotViewPlugin::createData: No datasets available, creating example data.";
         return;
     }
+
     std::vector<int> dataset1Indices;
     std::vector<int> dataset2Indices;
-    for (const auto& dataset : datasets)
-    {
-        if (dataset->getDataType() == ClusterType)
-        {
-            if (dataset->getGuiName() == "brain_section_label")
-            {
-                qDebug() << "LinePlotViewPlugin::createData: Found dataset with name 'brain_section_label'";
-                Dataset<Clusters> clusterDatasetFull = dataset->getFullDataset<Clusters>();
-                auto clusters = clusterDatasetFull->getClusters();
-                for (const auto& cluster : clusters)
-                {
-                    QString clusterName = cluster.getName();
-                    auto clusterIndices = cluster.getIndices();
-                    if (clusterName == "CJ23.56.004.CX.42.16.06" || clusterName == "CJ23.56.004.CX.42.15.06")
-                    {
-                        for (const auto& index : clusterIndices)
-                        {
-                            dataset1Indices.push_back(index);
-                        }
-                    }
-                    else
-                    {
-                        for (const auto& index : clusterIndices)
-                        {
-                            dataset2Indices.push_back(index);
-                        }
-                    }
 
+    // === Identify cluster indices ===
+    qDebug() << "LinePlotViewPlugin::createData: Identifying cluster indices...";
+    for (const auto& dataset : datasets) {
+        qDebug() << "LinePlotViewPlugin::createData: Checking dataset" << dataset->getGuiName() << "type" << dataset->getDataType().getTypeString();
+        if (dataset->getDataType() != ClusterType) continue;
+        if (dataset->getGuiName() != "brain_section_label") continue;
 
-                }
+        qDebug() << "LinePlotViewPlugin::createData: Found dataset with name 'brain_section_label'";
+        auto clusterDataset = dataset->getFullDataset<Clusters>();
+        const auto& clusters = clusterDataset->getClusters();
+        qDebug() << "LinePlotViewPlugin::createData: clusters.size() =" << clusters.size();
 
+        for (const auto& cluster : clusters) {
+            const auto& clusterName = cluster.getName();
+            const auto& indices = cluster.getIndices();
+            qDebug() << "LinePlotViewPlugin::createData: Cluster" << clusterName << "indices.size() =" << indices.size();
 
+            if (clusterName == "CJ23.56.004.CX.42.16.06" || clusterName == "CJ23.56.004.CX.42.15.06") {
+                dataset1Indices.insert(dataset1Indices.end(), indices.begin(), indices.end());
+                qDebug() << "LinePlotViewPlugin::createData: Added" << indices.size() << "indices to dataset1Indices";
+            }
+            else {
+                dataset2Indices.insert(dataset2Indices.end(), indices.begin(), indices.end());
+                qDebug() << "LinePlotViewPlugin::createData: Added" << indices.size() << "indices to dataset2Indices";
             }
         }
     }
+    qDebug() << "LinePlotViewPlugin::createData: dataset1Indices.size() =" << dataset1Indices.size()
+             << ", dataset2Indices.size() =" << dataset2Indices.size();
 
-    if (dataset1Indices.empty() || dataset2Indices.empty())
-    {
+    if (dataset1Indices.empty() || dataset2Indices.empty()) {
         qDebug() << "LinePlotViewPlugin::createData: No indices found in the datasets, creating example data.";
         return;
     }
 
+    std::unordered_set<int> dataset1Set(dataset1Indices.begin(), dataset1Indices.end());
+    std::unordered_set<int> dataset2Set(dataset2Indices.begin(), dataset2Indices.end());
+    qDebug() << "LinePlotViewPlugin::createData: Created dataset1Set and dataset2Set";
 
-    for (const auto& dataset : datasets)
-    {
-        if (dataset->getDataType() == PointType)
-        {
-            if (dataset->getGuiName() == "Xenium-CJ23")
-            {
-                qDebug() << "LinePlotViewPlugin::createData: Found dataset with name 'Xenium-CJ23'";
-                Dataset<Points> mainDatasetFull = dataset->getFullDataset<Points>();
-                mainDatasetFull->setGroupIndex(666);
-                auto childrenDatasets = dataset->getChildren();
-                Dataset<Points>  pointDataset1 = mv::data().createDataset("Points", "Section1_Xenium-CJ23");
-                pointDataset1->setGroupIndex(1);
-                Dataset<Points>  pointDataset2 = mv::data().createDataset("Points", "Section2_Xenium-CJ23");
-                pointDataset2->setGroupIndex(2);
-                events().notifyDatasetAdded(pointDataset1);
-                events().notifyDatasetAdded(pointDataset2);
-                int numOfPointsDataset1 = dataset1Indices.size();
-                int numOfPointsDataset2 = dataset2Indices.size();
-                int numDimensions = mainDatasetFull->getNumDimensions();
-                auto dimensionNames = mainDatasetFull->getDimensionNames();
-                std::vector<int> dimensionIndices;
-                for (int i = 0; i < numDimensions; ++i)
-                {
-                    dimensionIndices.push_back((i));
-                }
-                std::vector<float> datset1Data(numOfPointsDataset1 * numDimensions);
-                std::vector<float> datset2Data(numOfPointsDataset2 * numDimensions);
-                mainDatasetFull->populateDataForDimensions(datset1Data, dimensionIndices, dataset1Indices);
-                mainDatasetFull->populateDataForDimensions(datset2Data, dimensionIndices, dataset2Indices);
+    // === Process main dataset ===
+    qDebug() << "LinePlotViewPlugin::createData: Processing main dataset...";
+    for (const auto& dataset : datasets) {
+        qDebug() << "LinePlotViewPlugin::createData: Checking dataset" << dataset->getGuiName() << "type" << dataset->getDataType().getTypeString();
+        if (dataset->getDataType() != PointType) continue;
+        if (dataset->getGuiName() != "Xenium-CJ23") continue;
 
-                pointDataset1->setData(datset1Data.data(), numOfPointsDataset1, numDimensions);
-                pointDataset1->setDimensionNames(dimensionNames);
-                pointDataset2->setData(datset2Data.data(), numOfPointsDataset2, numDimensions);
-                pointDataset2->setDimensionNames(dimensionNames);
-                events().notifyDatasetDataChanged(pointDataset1);
-              
-                events().notifyDatasetDataChanged(pointDataset2);
-                
-                if (childrenDatasets.count() > 0)
-                {
-                    for (const auto& child : childrenDatasets)
-                    {
-                        if (child->getDataType() == PointType)
-                        {
-                            qDebug() << "LinePlotViewPlugin::createData: Found child dataset with name '" << child->getGuiName() << "'";
-                            Dataset<Points> childDatasetFull = child->getFullDataset<Points>();
-                            childDatasetFull->setGroupIndex(666);
-                            Dataset<Points>  childPointDataset1 = mv::data().createDataset("Points", child->getGuiName() + "_" + pointDataset1->getGuiName(), pointDataset1);
-                            childPointDataset1->setGroupIndex(1);
-                            Dataset<Points>  childPointDataset2 = mv::data().createDataset("Points", child->getGuiName() + "_" + pointDataset2->getGuiName(), pointDataset2);
-                            childPointDataset2->setGroupIndex(2);
-                            events().notifyDatasetAdded(childPointDataset1);
-                            events().notifyDatasetAdded(childPointDataset2);
-                            int numDimensionsChild = childDatasetFull->getNumDimensions();
-                            auto dimensionNamesChild = childDatasetFull->getDimensionNames();
-                            std::vector<int> dimensionIndicesChild;
-                            for (int i = 0; i < numDimensionsChild; ++i)
-                            {
-                                dimensionIndicesChild.push_back((i));
-                            }
+        qDebug() << "LinePlotViewPlugin::createData: Found dataset with name 'Xenium-CJ23'";
+        auto mainDataset = dataset->getFullDataset<Points>();
+        mainDataset->setGroupIndex(666);
 
-                            std::vector<float> childDatset1Data(numOfPointsDataset1 * numDimensionsChild);
-                            std::vector<float> childDatset2Data(numOfPointsDataset2 * numDimensionsChild);
-                            childDatasetFull->populateDataForDimensions(childDatset1Data, dimensionIndicesChild, dataset1Indices);
-                            childDatasetFull->populateDataForDimensions(childDatset2Data, dimensionIndicesChild, dataset2Indices);
-                            childPointDataset1->setData(childDatset1Data.data(), numOfPointsDataset1, numDimensionsChild);
-                            childPointDataset1->setDimensionNames(dimensionNamesChild);
-                            childPointDataset2->setData(childDatset2Data.data(), numOfPointsDataset2, numDimensionsChild);
-                            childPointDataset2->setDimensionNames(dimensionNamesChild);
-                            events().notifyDatasetDataChanged(childPointDataset1);
-                         
-                            events().notifyDatasetDataChanged(childPointDataset2);
-                          
+        qDebug() << "LinePlotViewPlugin::createData: Creating split datasets for Points";
+        Dataset<Points> pointDataset1 = mv::data().createDataset("Points", "Section1_Xenium-CJ23");
+        Dataset<Points> pointDataset2 = mv::data().createDataset("Points", "Section2_Xenium-CJ23");
+        pointDataset1->setGroupIndex(1);
+        pointDataset2->setGroupIndex(2);
+        events().notifyDatasetAdded(pointDataset1);
+        events().notifyDatasetAdded(pointDataset2);
+
+        int numDimensions = mainDataset->getNumDimensions();
+        auto dimensionNames = mainDataset->getDimensionNames();
+        std::vector<int> dimIndices(numDimensions);
+        std::iota(dimIndices.begin(), dimIndices.end(), 0);
+
+        int size1 = static_cast<int>(dataset1Indices.size());
+        int size2 = static_cast<int>(dataset2Indices.size());
+
+        qDebug() << "LinePlotViewPlugin::createData: numDimensions =" << numDimensions
+                 << ", size1 =" << size1 << ", size2 =" << size2;
+
+        std::vector<float> data1(size1 * numDimensions);
+        std::vector<float> data2(size2 * numDimensions);
+        qDebug() << "LinePlotViewPlugin::createData: Populating data for Section1_Xenium-CJ23";
+        mainDataset->populateDataForDimensions(data1, dimIndices, dataset1Indices);
+        qDebug() << "LinePlotViewPlugin::createData: Populating data for Section2_Xenium-CJ23";
+        mainDataset->populateDataForDimensions(data2, dimIndices, dataset2Indices);
+
+        pointDataset1->setData(data1.data(), size1, numDimensions);
+        pointDataset1->setDimensionNames(dimensionNames);
+        pointDataset2->setData(data2.data(), size2, numDimensions);
+        pointDataset2->setDimensionNames(dimensionNames);
+        events().notifyDatasetDataChanged(pointDataset1);
+        events().notifyDatasetDataChanged(pointDataset2);
+        qDebug() << "LinePlotViewPlugin::createData: Finished setting data for split Points datasets";
+
+        // === Process children ===
+        qDebug() << "LinePlotViewPlugin::createData: Processing children datasets...";
+        for (const auto& child : dataset->getChildren()) {
+            auto childType = child->getDataType();
+            auto childName = child->getGuiName();
+            qDebug() << "LinePlotViewPlugin::createData: Child" << childName << "type" << childType.getTypeString();
+
+            if (childType == PointType) {
+                qDebug() << "LinePlotViewPlugin::createData: Found child dataset (PointType):" << childName;
+                Dataset<Points> childDataset = child->getFullDataset<Points>();
+                childDataset->setGroupIndex(666);
+
+                Dataset<Points> child1 = mv::data().createDataset("Points", childName + "_" + pointDataset1->getGuiName(), pointDataset1);
+                Dataset<Points> child2 = mv::data().createDataset("Points", childName + "_" + pointDataset2->getGuiName(), pointDataset2);
+                child1->setGroupIndex(1);
+                child2->setGroupIndex(2);
+                events().notifyDatasetAdded(child1);
+                events().notifyDatasetAdded(child2);
+
+                int childDims = childDataset->getNumDimensions();
+                auto childDimNames = childDataset->getDimensionNames();
+                std::vector<int> childDimIndices(childDims);
+                std::iota(childDimIndices.begin(), childDimIndices.end(), 0);
+
+                qDebug() << "LinePlotViewPlugin::createData: childDims =" << childDims;
+
+                std::vector<float> childData1(size1 * childDims);
+                std::vector<float> childData2(size2 * childDims);
+                qDebug() << "LinePlotViewPlugin::createData: Populating childData1 for" << childName;
+                childDataset->populateDataForDimensions(childData1, childDimIndices, dataset1Indices);
+                qDebug() << "LinePlotViewPlugin::createData: Populating childData2 for" << childName;
+                childDataset->populateDataForDimensions(childData2, childDimIndices, dataset2Indices);
+
+                child1->setData(childData1.data(), size1, childDims);
+                child1->setDimensionNames(childDimNames);
+                child2->setData(childData2.data(), size2, childDims);
+                child2->setDimensionNames(childDimNames);
+                events().notifyDatasetDataChanged(child1);
+                events().notifyDatasetDataChanged(child2);
+                qDebug() << "LinePlotViewPlugin::createData: Finished setting data for child Points datasets:" << childName;
+            }
+            else if (childType == ClusterType) {
+                qDebug() << "LinePlotViewPlugin::createData: Found child dataset (ClusterType):" << childName;
+                auto childCluster = child->getFullDataset<Clusters>();
+                childCluster->setGroupIndex(666);
+
+                Dataset<Clusters> childClus1 = mv::data().createDataset("Cluster", childName + "_" + pointDataset1->getGuiName(), pointDataset1);
+                Dataset<Clusters> childClus2 = mv::data().createDataset("Cluster", childName + "_" + pointDataset2->getGuiName(), pointDataset2);
+                childClus1->setGroupIndex(1);
+                childClus2->setGroupIndex(2);
+                events().notifyDatasetAdded(childClus1);
+                events().notifyDatasetAdded(childClus2);
+
+                int clusterIdx = 0;
+                for (const auto& cluster : childCluster->getClusters()) {
+                    const auto& name = cluster.getName();
+                    const auto& color = cluster.getColor();
+                    const auto& indices = cluster.getIndices();
+
+                    std::vector<std::seed_seq::result_type> indices1;
+                    std::vector<std::seed_seq::result_type> indices2;
+
+                    for (auto index : indices) {
+                        if (dataset1Set.contains(index)) {
+                            indices1.push_back(index);
                         }
-                        else if (child->getDataType() == ClusterType)
-                        {
-                            Dataset<Clusters> clusterDatasetFull = child->getFullDataset<Clusters>();
-                            clusterDatasetFull->setGroupIndex(666);
-                            Dataset<Clusters> childClusterDataset1 = mv::data().createDataset("Cluster", child->getGuiName() + "_" + pointDataset1->getGuiName(), pointDataset1);
-                            childClusterDataset1->setGroupIndex(1);
-                            Dataset<Clusters> childClusterDataset2 = mv::data().createDataset("Cluster", child->getGuiName() + "_" + pointDataset2->getGuiName(), pointDataset2);
-                            childClusterDataset2->setGroupIndex(2);
-                            events().notifyDatasetAdded(childClusterDataset1);
-                            events().notifyDatasetAdded(childClusterDataset2);
-                            auto clusters = clusterDatasetFull->getClusters();
-                            for (const auto& cluster : clusters)
-                            {
-                                QString clusterName = cluster.getName();
-                                auto clusterIndices = cluster.getIndices();
-                                auto clusterColor = cluster.getColor();
-                                std::vector<std::seed_seq::result_type> indicesDataset1;
-                                std::vector<std::seed_seq::result_type> indicesDataset2;
-                                for (const auto& index : clusterIndices)
-                                {
-                                    if (std::find(dataset1Indices.begin(), dataset1Indices.end(), index) != dataset1Indices.end())
-                                    {
-                                        indicesDataset1.push_back(index);
-                                    }
-                                    else if (std::find(dataset2Indices.begin(), dataset2Indices.end(), index) != dataset2Indices.end())
-                                    {
-                                        indicesDataset2.push_back(index);
-                                    }
-                                }
-
-                                Cluster clusterValue1;
-                                Cluster clusterValue2;
-
-                                clusterValue1.setName(clusterName);
-                                clusterValue1.setColor(clusterColor);
-                                clusterValue1.setIndices(indicesDataset1);
-                                childClusterDataset1->addCluster(clusterValue1);
-
-                                clusterValue2.setName(clusterName);
-                                clusterValue2.setColor(clusterColor);
-                                clusterValue2.setIndices(indicesDataset2);
-                                childClusterDataset2->addCluster(clusterValue2);
-
-                            }
-                            events().notifyDatasetDataChanged(childClusterDataset1);
-                            events().notifyDatasetDataChanged(childClusterDataset2);
-                        }
-                        else
-                        {
-                            qDebug() << "LinePlotViewPlugin::createData: Found child dataset with name '" << child->getGuiName() << "' of unsupported type, skipping.";
+                        else if (dataset2Set.contains(index)) {
+                            indices2.push_back(index);
                         }
                     }
+
+                    qDebug() << "LinePlotViewPlugin::createData: Cluster" << clusterIdx << "name:" << name
+                             << "indices1.size() =" << indices1.size() << "indices2.size() =" << indices2.size();
+
+                    Cluster clus1;
+                    clus1.setName(name);
+                    clus1.setColor(color);
+                    clus1.setIndices(indices1);
+                    childClus1->addCluster(clus1);
+
+                    Cluster clus2;
+                    clus2.setName(name);
+                    clus2.setColor(color);
+                    clus2.setIndices(indices2);
+                    childClus2->addCluster(clus2);
+
+                    ++clusterIdx;
                 }
 
-
-
-
+                events().notifyDatasetDataChanged(childClus1);
+                events().notifyDatasetDataChanged(childClus2);
+                qDebug() << "LinePlotViewPlugin::createData: Finished setting data for child Cluster datasets:" << childName;
             }
-
+            else {
+                qDebug() << "LinePlotViewPlugin::createData: Skipping unsupported child dataset type:" << childName;
+            }
         }
+        qDebug() << "LinePlotViewPlugin::createData: Finished processing children for main dataset";
     }
-    
-    if (0)
-    {
-        for (const auto& dataset : datasets)
-        {
-            if (dataset->getGroupIndex() == 666)
-            {
-                qDebug() << "LinePlotViewPlugin::createData: Found dataset with group index 666, removing it.";
+
+    // === Optional: Cleanup old datasets ===
+    if (false) {
+        qDebug() << "LinePlotViewPlugin::createData: Cleanup old datasets block entered";
+        for (const auto& dataset : datasets) {
+            if (dataset->getGroupIndex() == 666) {
+                qDebug() << "LinePlotViewPlugin::createData: Removing dataset with group index 666:" << dataset->getGuiName();
                 mv::events().notifyDatasetAboutToBeRemoved(dataset);
-
                 mv::data().removeDataset(dataset);
-
             }
         }
     }
-
 
     qDebug() << "LinePlotViewPlugin::createData: Method execution time:" << methodTimer.elapsed() << "ms";
+    qDebug() << "LinePlotViewPlugin::createData: EXIT";
 }
-
 
 void LinePlotViewPlugin::createDataOptimized()
 {
     qDebug() << "createDataOptimized: ENTER";
     QElapsedTimer methodTimer;
     methodTimer.start();
+
     auto datasets = mv::data().getAllDatasets();
     qDebug() << "createDataOptimized: datasets.size() =" << datasets.size();
-
-    if (datasets.empty())
-    {
-        qDebug() << "createDataOptimized: No datasets available, creating example data.";
+    if (datasets.empty()) {
+        qDebug() << "createDataOptimized: No datasets available";
         return;
     }
 
     // Step 1: Collect indices
-    std::vector<int> dataset1Indices;
-    std::vector<int> dataset2Indices;
-
+    std::vector<int> dataset1Indices, dataset2Indices;
     qDebug() << "createDataOptimized: Step 1 - Collect indices";
-    for (const auto& dataset : datasets)
-    {
-        qDebug() << "createDataOptimized: Checking dataset" << dataset->getGuiName() << "type" << dataset->getDataType().getTypeString();
-        if (dataset->getDataType() == ClusterType && dataset->getGuiName() == "brain_section_label")
-        {
-            qDebug() << "createDataOptimized: Found brain_section_label dataset";
-            Dataset<Clusters> clusterDatasetFull = dataset->getFullDataset<Clusters>();
-            auto clusters = clusterDatasetFull->getClusters();
-            qDebug() << "createDataOptimized: clusters.size() =" << clusters.size();
+
+    for (const auto& ds : datasets) {
+        qDebug() << "Checking dataset" << ds->getGuiName() << "type" << ds->getDataType().getTypeString();
+        if (ds->getDataType() == ClusterType && ds->getGuiName() == "brain_section_label") {
+            Dataset<Clusters> clusterDs = ds->getFullDataset<Clusters>();
+            if (!clusterDs.isValid()) {
+                qDebug() << "Invalid cluster dataset!";
+                return;
+            }
+            auto clusters = clusterDs->getClusters();
+            qDebug() << "clusters.size() =" << clusters.size();
 
             size_t count1 = 0, count2 = 0;
-            for (const auto& cluster : clusters)
-            {
-                if (cluster.getName() == "CJ23.56.004.CX.42.16.06" ||
-                    cluster.getName() == "CJ23.56.004.CX.42.15.06")
-                {
-                    count1 += cluster.getIndices().size();
-                }
+            for (const auto& cl : clusters) {
+                if (cl.getName() == "CJ23.56.004.CX.42.16.06" ||
+                    cl.getName() == "CJ23.56.004.CX.42.15.06")
+                    count1 += cl.getIndices().size();
                 else
-                {
-                    count2 += cluster.getIndices().size();
-                }
+                    count2 += cl.getIndices().size();
             }
-            qDebug() << "createDataOptimized: count1 =" << count1 << ", count2 =" << count2;
 
             dataset1Indices.reserve(count1);
             dataset2Indices.reserve(count2);
 
-            for (const auto& cluster : clusters)
-            {
-                const auto& indices = cluster.getIndices();
-                if (cluster.getName() == "CJ23.56.004.CX.42.16.06" ||
-                    cluster.getName() == "CJ23.56.004.CX.42.15.06")
-                {
-                    dataset1Indices.insert(dataset1Indices.end(), indices.begin(), indices.end());
-                }
+            for (const auto& cl : clusters) {
+                const auto& idx = cl.getIndices();
+                if (cl.getName() == "CJ23.56.004.CX.42.16.06" ||
+                    cl.getName() == "CJ23.56.004.CX.42.15.06")
+                    dataset1Indices.insert(dataset1Indices.end(), idx.begin(), idx.end());
                 else
-                {
-                    dataset2Indices.insert(dataset2Indices.end(), indices.begin(), indices.end());
-                }
+                    dataset2Indices.insert(dataset2Indices.end(), idx.begin(), idx.end());
             }
-            qDebug() << "createDataOptimized: dataset1Indices.size() =" << dataset1Indices.size()
-                     << ", dataset2Indices.size() =" << dataset2Indices.size();
+
+            qDebug() << "dataset1Indices.size() =" << dataset1Indices.size()
+                << ", dataset2Indices.size() =" << dataset2Indices.size();
             break;
         }
     }
 
-    if (dataset1Indices.empty() || dataset2Indices.empty())
-    {
-        qDebug() << "createDataOptimized: No indices found in the datasets, creating example data.";
+    if (dataset1Indices.empty() || dataset2Indices.empty()) {
+        qDebug() << "No indices found in the datasets";
         return;
     }
 
-    std::unordered_set<int> dataset1Lookup(dataset1Indices.begin(), dataset1Indices.end());
-    std::unordered_set<int> dataset2Lookup(dataset2Indices.begin(), dataset2Indices.end());
-    qDebug() << "createDataOptimized: Step 1 complete, lookup sets created";
+    std::unordered_set<int> lookup1(dataset1Indices.begin(), dataset1Indices.end());
+    std::unordered_set<int> lookup2(dataset2Indices.begin(), dataset2Indices.end());
+    qDebug() << "Step 1 complete, lookup sets created";
 
     // Step 2: Process main Points dataset
-    qDebug() << "createDataOptimized: Step 2 - Process main Points dataset";
-    for (const auto& dataset : datasets)
-    {
-        qDebug() << "createDataOptimized: Checking dataset" << dataset->getGuiName() << "type" << dataset->getDataType().getTypeString();
-        if (dataset->getDataType() == PointType && dataset->getGuiName() == "Xenium-CJ23")
-        {
-            qDebug() << "createDataOptimized: Found main Points dataset Xenium-CJ23";
-            Dataset<Points> mainDatasetFull = dataset->getFullDataset<Points>();
-            mainDatasetFull->setGroupIndex(666);
+    qDebug() << "Step 2 - Process main Points dataset";
+    for (const auto& ds : datasets) {
+        if (ds->getDataType() == PointType && ds->getGuiName() == "Xenium-CJ23") {
+            Dataset<Points> mainDs = ds->getFullDataset<Points>();
+            if (!mainDs.isValid()) {
+                qDebug() << "Invalid main Points dataset!";
+                return;
+            }
+            mainDs->setGroupIndex(666);
 
-            const auto childrenDatasets = dataset->getChildren();
-            qDebug() << "createDataOptimized: childrenDatasets.size() =" << childrenDatasets.size();
-            const int numDimensions = mainDatasetFull->getNumDimensions();
-            qDebug() << "createDataOptimized: numDimensions =" << numDimensions;
-            const auto dimensionNames = mainDatasetFull->getDimensionNames();
+            auto children = ds->getChildren();
+            qDebug() << "childrenDatasets.size() =" << children.size();
 
-            std::vector<int> dimensionIndices;
-            dimensionIndices.reserve(numDimensions);
-            for (int i = 0; i < numDimensions; ++i)
-                dimensionIndices.push_back((i));
-            qDebug() << "createDataOptimized: dimensionIndices.size() =" << dimensionIndices.size();
+            int numDim = mainDs->getNumDimensions();
+            auto dimNames = mainDs->getDimensionNames();
+            std::vector<int> allDims(numDim);
+            std::iota(allDims.begin(), allDims.end(), 0);
 
-            // Create main datasets in main thread
-            Dataset<Points> pointDataset1 = mv::data().createDataset("Points", "Section1_Xenium-CJ23");
-            pointDataset1->setGroupIndex(1);
-            Dataset<Points> pointDataset2 = mv::data().createDataset("Points", "Section2_Xenium-CJ23");
-            pointDataset2->setGroupIndex(2);
+            // Create split datasets
+            auto createSplit = [&](const QString& suffix, int group)->Dataset<Points> {
+                auto p = mv::data().createDataset("Points", suffix);
+                p->setGroupIndex(group);
+                events().notifyDatasetAdded(p);
+                return p;
+                };
 
-            events().notifyDatasetAdded(pointDataset1);
-            events().notifyDatasetAdded(pointDataset2);
-            qDebug() << "createDataOptimized: Created and notified main point datasets";
+            Dataset<Points> ds1 = createSplit("Section1_Xenium-CJ23", 1);
+            Dataset<Points> ds2 = createSplit("Section2_Xenium-CJ23", 2);
 
-            // Data containers for parallel processing
             struct ThreadData {
                 std::vector<float> data;
                 std::vector<int> indices;
-                Dataset<Points> targetDataset;
-                std::vector<QString> dimensionNames;
-            };
-            struct ThreadDataChild {
-                std::vector<float> dataChild;
-                std::vector<int> indices;
-                Dataset<Points> targetDatasetChild;
-                std::vector<QString> dimensionNamesChild;
-            };
-            // Prepare thread data
-            ThreadData data1{
-                std::vector<float>(dataset1Indices.size() * numDimensions),
-                dataset1Indices,
-                pointDataset1,
-                dimensionNames
+                Dataset<Points> target;
+                std::vector<QString> dimNames;
             };
 
-            ThreadData data2{
-                std::vector<float>(dataset2Indices.size() * numDimensions),
-                dataset2Indices,
-                pointDataset2,
-                dimensionNames
-            };
+            ThreadData t1{ std::vector<float>(dataset1Indices.size() * numDim),
+                           dataset1Indices, ds1, dimNames };
+            ThreadData t2{ std::vector<float>(dataset2Indices.size() * numDim),
+                           dataset2Indices, ds2, dimNames };
 
-            // Lambda for processing data
-            auto processData = [this, &mainDatasetFull, &dimensionIndices](ThreadData& td) {
-                qDebug() << "createDataOptimized: processData: Populating data for targetDataset";
-                mainDatasetFull->populateDataForDimensions(td.data, dimensionIndices, td.indices);
-
-                QMetaObject::invokeMethod(this, [&]() {
-                    qDebug() << "createDataOptimized: processData: Setting data and dimension names for targetDataset";
-                    td.targetDataset->setData(td.data.data(), td.indices.size(), td.dimensionNames.size());
-                    td.targetDataset->setDimensionNames(td.dimensionNames);
-                    events().notifyDatasetDataChanged(td.targetDataset);
-                    qDebug() << "createDataOptimized: processData: Notified data changed for targetDataset";
+            auto process = [this, &mainDs, &allDims](ThreadData td) {
+                mainDs->populateDataForDimensions(td.data, allDims, td.indices);
+                QMetaObject::invokeMethod(this, [td = std::move(td)]() mutable {
+                    auto full = td.target->getFullDataset<Points>();
+                    if (full.isValid()) {
+                        full->setData(td.data.data(), td.indices.size(), td.dimNames.size());
+                        full->setDimensionNames(td.dimNames);
+                        mv::events().notifyDatasetDataChanged(td.target);
+                    }
                     });
                 };
 
-            // Process in parallel
-            qDebug() << "createDataOptimized: Launching QtConcurrent::run for main datasets";
-            QFuture<void> future1 = QtConcurrent::run(processData, std::ref(data1));
-            QFuture<void> future2 = QtConcurrent::run(processData, std::ref(data2));
+            QFuture<void> f1 = QtConcurrent::run(process, std::move(t1));
+            QFuture<void> f2 = QtConcurrent::run(process, std::move(t2));
 
-            // Process children
             QVector<QFuture<void>> childFutures;
-            int childIdx = 0;
-            for (const auto& child : childrenDatasets)
-            {
-                qDebug() << "createDataOptimized: Processing child" << childIdx << "name:" << child->getGuiName() << "type:" << child->getDataType().getTypeString();
+            int idx = 0;
+            for (const auto& child : children) {
+                qDebug() << "Processing child" << idx
+                    << "name:" << child->getGuiName()
+                    << "type:" << child->getDataType().getTypeString();
+
                 if (child->getDataType() == PointType) {
-                    Dataset<Points> childDatasetFull = child->getFullDataset<Points>();
-                    childDatasetFull->setGroupIndex(666);
-
-                    // Create child datasets in main thread
-                    Dataset<Points> childPointDataset1 = mv::data().createDataset("Points",
-                        child->getGuiName() + "_" + pointDataset1->getGuiName(), pointDataset1);
-                    childPointDataset1->setGroupIndex(1);
-
-                    Dataset<Points> childPointDataset2 = mv::data().createDataset("Points",
-                        child->getGuiName() + "_" + pointDataset2->getGuiName(), pointDataset2);
-                    childPointDataset2->setGroupIndex(2);
-
-                    events().notifyDatasetAdded(childPointDataset1);
-                    events().notifyDatasetAdded(childPointDataset2);
-                    qDebug() << "createDataOptimized: Created and notified child point datasets for child" << childIdx;
-
-                    int numDimensionsChild = childDatasetFull->getNumDimensions();
-                    auto dimensionNamesChild = childDatasetFull->getDimensionNames();
-                    std::vector<int> dimensionIndicesChild;
-                    for (int i = 0; i < numDimensionsChild; ++i)
-                    {
-                        dimensionIndicesChild.push_back((i));
+                    Dataset<Points> childFull = child->getFullDataset<Points>();
+                    if (!childFull.isValid()) {
+                        qDebug() << "Invalid child Points dataset!";
+                        continue;
                     }
-                    qDebug() << "createDataOptimized: numDimensionsChild =" << numDimensionsChild << ", dimensionIndicesChild.size() =" << dimensionIndicesChild.size();
+                    childFull->setGroupIndex(666);
 
-                    // Prepare child thread data
-                    ThreadDataChild childData1{
-                        std::vector<float>(dataset1Indices.size() * numDimensionsChild),
-                        dataset1Indices,
-                        childPointDataset1,
-                        dimensionNamesChild
+                    auto makeChildTargets = [&](Dataset<Points> base, Dataset<Points>& parentSplit) {
+                        return mv::data().createDataset("Points",
+                            base->getGuiName() + "_" + parentSplit->getGuiName(), parentSplit);
+                        };
+
+                    Dataset<Points> cp1 = makeChildTargets(child, ds1);
+                    cp1->setGroupIndex(1);
+                    events().notifyDatasetAdded(cp1);
+
+                    Dataset<Points> cp2 = makeChildTargets(child, ds2);
+                    cp2->setGroupIndex(2);
+                    events().notifyDatasetAdded(cp2);
+
+                    int nDim2 = childFull->getNumDimensions();
+                    std::vector<QString> dn2 = childFull->getDimensionNames();
+                    if (dn2.size() != nDim2) {
+                        dn2.clear();
+                        for (int d = 0; d < nDim2; ++d) dn2.push_back(QString("Dim_%1").arg(d + 1));
+                    }
+                    std::vector<int> dims2(nDim2);
+                    std::iota(dims2.begin(), dims2.end(), 0);
+
+                    struct CData {
+                        std::vector<float> data;
+                        std::vector<int> indices;
+                        Dataset<Points> tgt;
+                        std::vector<QString> dims;
                     };
 
-                    ThreadDataChild childData2{
-                        std::vector<float>(dataset2Indices.size() * numDimensionsChild),
-                        dataset2Indices,
-                        childPointDataset2,
-                        dimensionNamesChild
-                    };
+                    CData cd1{ {}, dataset1Indices, cp1, dn2 };
+                    cd1.data.resize(cd1.indices.size() * nDim2);
+                    CData cd2{ {}, dataset2Indices, cp2, dn2 };
+                    cd2.data.resize(cd2.indices.size() * nDim2);
 
-                    // Process child data in parallel
-                    qDebug() << "createDataOptimized: Launching QtConcurrent::run for child point datasets for child" << childIdx;
-                    QFuture<void> childFuture1 = QtConcurrent::run([&, childIdx]() {
-                        qDebug() << "createDataOptimized: childFuture1: Populating data for child" << childIdx;
-                        childDatasetFull->populateDataForDimensions(childData1.dataChild, dimensionIndicesChild, childData1.indices);
-                        QMetaObject::invokeMethod(this, [&]() {
-                            qDebug() << "createDataOptimized: childFuture1: Setting data and dimension names for child" << childIdx;
-                            childData1.targetDatasetChild->setData(childData1.dataChild.data(), childData1.indices.size(), childData1.dimensionNamesChild.size());
-                            childData1.targetDatasetChild->setDimensionNames(childData1.dimensionNamesChild);
-                            events().notifyDatasetDataChanged(childData1.targetDatasetChild);
-                            qDebug() << "createDataOptimized: childFuture1: Notified data changed for child" << childIdx;
-                            });
-                        });
+                    auto spawnChild = [this, childFull, dims2, nDim2](CData cd) {
+                        return [this, childFull, cd, dims2, nDim2]() mutable {
+                            childFull->populateDataForDimensions(cd.data, dims2, cd.indices);
+                            QMetaObject::invokeMethod(this, [cd = std::move(cd), nDim2]() mutable {
+                                auto full = cd.tgt->getFullDataset<Points>();
+                                if (full.isValid()) {
+                                    full->setData(cd.data.data(), cd.indices.size(), nDim2);
+                                    full->setDimensionNames(cd.dims);
+                                    mv::events().notifyDatasetDataChanged(cd.tgt);
+                                }
+                                });
+                            };
+                        };
 
-                    QFuture<void> childFuture2 = QtConcurrent::run([&, childIdx]() {
-                        qDebug() << "createDataOptimized: childFuture2: Populating data for child" << childIdx;
-                        childDatasetFull->populateDataForDimensions(childData2.dataChild, dimensionIndicesChild, childData2.indices);
-                        QMetaObject::invokeMethod(this, [&]() {
-                            qDebug() << "createDataOptimized: childFuture2: Setting data and dimension names for child" << childIdx;
-                            childData2.targetDatasetChild->setData(childData2.dataChild.data(), childData2.indices.size(), childData2.dimensionNamesChild.size());
-                            childData2.targetDatasetChild->setDimensionNames(childData2.dimensionNamesChild);
-                            events().notifyDatasetDataChanged(childData2.targetDatasetChild);
-                            qDebug() << "createDataOptimized: childFuture2: Notified data changed for child" << childIdx;
-                            });
-                        });
-
-                    childFutures.append(childFuture1);
-                    childFutures.append(childFuture2);
+                    childFutures << QtConcurrent::run(spawnChild(cd1));
+                    childFutures << QtConcurrent::run(spawnChild(cd2));
                 }
                 else if (child->getDataType() == ClusterType) {
-                    qDebug() << "createDataOptimized: Processing cluster-type child" << childIdx;
-                    // Process cluster-type children in main thread
-                    Dataset<Clusters> clusterDatasetFull = child->getFullDataset<Clusters>();
-                    clusterDatasetFull->setGroupIndex(666);
-
-                    Dataset<Clusters> childClusterDataset1 = mv::data().createDataset("Cluster",
-                        child->getGuiName() + "_" + pointDataset1->getGuiName(), pointDataset1);
-                    childClusterDataset1->setGroupIndex(1);
-
-                    Dataset<Clusters> childClusterDataset2 = mv::data().createDataset("Cluster",
-                        child->getGuiName() + "_" + pointDataset2->getGuiName(), pointDataset2);
-                    childClusterDataset2->setGroupIndex(2);
-
-                    events().notifyDatasetAdded(childClusterDataset1);
-                    events().notifyDatasetAdded(childClusterDataset2);
-
-                    auto clusters = clusterDatasetFull->getClusters();
-                    qDebug() << "createDataOptimized: clusterDatasetFull->getClusters().size() =" << clusters.size();
-                    for (const auto& cluster : clusters)
-                    {
-                        std::vector<std::seed_seq::result_type> indices1, indices2;
-                        const auto& clusterIndices = cluster.getIndices();
-
-                        for (const auto& index : clusterIndices)
-                        {
-                            if (dataset1Lookup.count(index))
-                                indices1.push_back(index);
-                            else if (dataset2Lookup.count(index))
-                                indices2.push_back(index);
-                        }
-
-                        Cluster cluster1, cluster2;
-                        cluster1.setName(cluster.getName());
-                        cluster1.setColor(cluster.getColor());
-                        cluster1.setIndices(indices1);
-
-                        cluster2.setName(cluster.getName());
-                        cluster2.setColor(cluster.getColor());
-                        cluster2.setIndices(indices2);
-
-                        childClusterDataset1->addCluster(cluster1);
-                        childClusterDataset2->addCluster(cluster2);
+                    qDebug() << "Processing cluster-type child" << idx;
+                    Dataset<Clusters> cFull = child->getFullDataset<Clusters>();
+                    if (!cFull.isValid()) {
+                        qDebug() << "Invalid child Clusters dataset!";
+                        continue;
                     }
+                    cFull->setGroupIndex(666);
 
-                    events().notifyDatasetDataChanged(childClusterDataset1);
-                    events().notifyDatasetDataChanged(childClusterDataset2);
-                    qDebug() << "createDataOptimized: Finished processing cluster-type child" << childIdx;
+                    auto makeChildCluster = [&](Dataset<Points>& parentSplit) {
+                        auto ds = mv::data().createDataset("Cluster",
+                            child->getGuiName() + "_" + parentSplit->getGuiName(), parentSplit);
+                        ds->setGroupIndex(parentSplit->getGroupIndex());
+                        events().notifyDatasetAdded(ds);
+                        return ds;
+                        };
+
+                    Dataset<Clusters> cl1 = makeChildCluster(ds1);
+                    Dataset<Clusters> cl2 = makeChildCluster(ds2);
+
+                    for (const auto& cl : cFull->getClusters()) {
+                        std::vector<std::seed_seq::result_type> i1, i2;
+                        for (int i : cl.getIndices()) {
+                            if (lookup1.count(i)) i1.push_back(i);
+                            else if (lookup2.count(i)) i2.push_back(i);
+                        }
+                        Cluster a = cl, b = cl;
+                        a.setIndices(i1);
+                        b.setIndices(i2);
+                        cl1->addCluster(a);
+                        cl2->addCluster(b);
+                    }
+                    events().notifyDatasetDataChanged(cl1);
+                    events().notifyDatasetDataChanged(cl2);
+                    qDebug() << "Finished processing cluster-type child" << idx;
                 }
-                ++childIdx;
+                ++idx;
             }
 
-            // Wait for all processing to complete
-            qDebug() << "createDataOptimized: Waiting for main dataset futures";
-            future1.waitForFinished();
-            future2.waitForFinished();
-            qDebug() << "createDataOptimized: Main dataset futures finished";
+            f1.waitForFinished();
+            f2.waitForFinished();
+            for (auto& cf : childFutures) cf.waitForFinished();
 
-            // Wait for all child futures to complete
-            qDebug() << "createDataOptimized: Waiting for child futures";
-            for (auto& future : childFutures) {
-                future.waitForFinished();
-            }
-            qDebug() << "createDataOptimized: All child futures finished";
-
-            // Additional wait to ensure all events are processed
             QCoreApplication::processEvents();
-            qDebug() << "createDataOptimized: QCoreApplication::processEvents() done";
-
             break;
         }
     }
 
-    // Additional safety wait
-    // Ensure all events are processed before deletion
-    qDebug() << "createDataOptimized: Entering event processing safety loop";
-    for (int i = 0; i < 20; ++i) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        QThread::msleep(10);
-    }
-    qDebug() << "createDataOptimized: Event processing safety loop done";
-
-
-
-    qDebug() << "LinePlotViewPlugin::createDataOptimized: Method execution time:" << methodTimer.elapsed() << "ms";
+    qDebug() << "createDataOptimized: execution time =" << methodTimer.elapsed() << "ms";
     qDebug() << "createDataOptimized: EXIT";
 }

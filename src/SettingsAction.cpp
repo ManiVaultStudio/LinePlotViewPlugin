@@ -1,5 +1,4 @@
 #include "SettingsAction.h"
-#include "GlobalSettingsAction.h"
 
 #include "LinePlotViewPlugin.h"
 
@@ -33,9 +32,6 @@ SettingsAction::SettingsAction(QObject* parent, const QString& title) :
     _datasetNameAction.setEnabled(false);
     _datasetNameAction.setText("Dataset name");
     _datasetNameAction.setString(" (No data loaded yet)");
-
-    _pointSizeAction.setValue(mv::settings().getPluginGlobalSettingsGroupAction<GlobalSettingsAction>(_linePlotViewPlugin)->getDefaultPointSizeAction().getValue());
-    _pointOpacityAction.setValue(mv::settings().getPluginGlobalSettingsGroupAction<GlobalSettingsAction>(_linePlotViewPlugin)->getDefaultPointOpacityAction().getValue());
 
     connect(&_xDimensionPickerAction, &DimensionPickerAction::currentDimensionIndexChanged, _linePlotViewPlugin, &LinePlotViewPlugin::updatePlot);
     connect(&_yDimensionPickerAction, &DimensionPickerAction::currentDimensionIndexChanged, _linePlotViewPlugin, &LinePlotViewPlugin::updatePlot);

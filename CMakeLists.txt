@@ -38,14 +38,10 @@ set(PLUGIN_SOURCES
     src/LinePlotViewPlugin.h
     src/LinePlotViewPlugin.cpp
     PluginInfo.json
-	src/LinePlotViewWidget.h
-    src/LinePlotViewWidget.cpp
 	src/HighPerfLineChart.h
 	src/HighPerfLineChart.cpp
 	src/SettingsAction.h
     src/SettingsAction.cpp
-    src/GlobalSettingsAction.h
-    src/GlobalSettingsAction.cpp
 )
 
 

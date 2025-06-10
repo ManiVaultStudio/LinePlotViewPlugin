@@ -1,7 +1,4 @@
 ﻿#include "LinePlotViewPlugin.h"
-#include "LinePlotViewWidget.h"
-
-#include "GlobalSettingsAction.h"
 
 #include <graphics/Vector2f.h>
 
@@ -33,15 +30,15 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     _currentDataSet(),
     _currentDimensions({0, 1}),
     _dropWidget(nullptr),
-    _linePlotViewWidget(new LinePlotViewWidget()),
+    _lineChartWidget(new HighPerfLineChart()),
     _settingsAction(this, "Settings Action")
 {
     setObjectName("LinePlot view");
 
     // Instantiate new drop widget, setting the LinePlot Widget as its parent
     // the parent widget hat to setAcceptDrops(true) for the drop widget to work
-    _dropWidget = new DropWidget(_linePlotViewWidget);
-
+    _dropWidget = new DropWidget(_lineChartWidget);
+    _lineChartWidget->setAcceptDrops(true);
     // Set the drop indicator widget (the widget that indicates that the view is eligible for data dropping)
     _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData from the data hierarchy here"));
 
@@ -77,7 +74,7 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
             else {
                 auto candidateDataset = mv::data().getDataset<Points>(datasetId);
 
-                dropRegions << new DropWidget::DropRegion(this, "Points", QString("Visualize %1 as parallel coordinates").arg(datasetGuiName), "map-marker-alt", true, [this, candidateDataset]() {
+                dropRegions << new DropWidget::DropRegion(this, "Points", QString("Visualize %1 as line chart").arg(datasetGuiName), "map-marker-alt", true, [this, candidateDataset]() {
                     loadData({ candidateDataset });
                     });
 
@@ -131,15 +128,14 @@ void LinePlotViewPlugin::init()
 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(_linePlotViewWidget, 100);
+    layout->addWidget(_lineChartWidget, 100);
 
     // Apply the layout
     getWidget().setLayout(layout);
 
     addDockingAction(&_settingsAction);
 
-    // Update the data when the scatter plot widget is initialized
-    connect(_linePlotViewWidget, &LinePlotViewWidget::initialized, this, []() { qDebug() << "LinePlotViewWidget is initialized."; } );
+
 }
 
 void LinePlotViewPlugin::updatePlot()
@@ -169,8 +165,111 @@ void LinePlotViewPlugin::updatePlot()
     std::vector<mv::Vector2f> data;
     _currentDataSet->extractDataForDimensions(data, _currentDimensions[0], _currentDimensions[1]);
 
+    /*
+
+    int geneIndex = std::distance(dimensionNames.begin(), it);
+    LineData selectedGeneLineData;
+    QVector<QColor> colorsExpVals = { QColor("#FDCC0D") };
+    std::vector<int> geneIndicesExp = { geneIndex };
+    std::vector<float> expresionValues(_filteredSelectionIndices.size() * geneIndicesExp.size());
+    QVector<QPointF> points;
+
+    int geneIndicesCoord = 1;
+    std::vector<float> coordValues(_filteredSelectionIndices.size() * geneIndicesCoord);
+
+
+    pointDataset->populateDataForDimensions(expresionValues, geneIndicesExp, _filteredSelectionIndices);
+    _rotatedSelectedEmbeddingDataset->extractDataForDimension(coordValues, geneIndicesCoord);
+
+    qDebug() << "Raw data size:" << expresionValues.size();
+    if (!expresionValues.empty()) {
+        qDebug() << "First 10 elements:";
+        for (size_t i = 0; i < std::min(size_t(10), expresionValues.size()); ++i) {
+            qDebug() << i << ":" << expresionValues[i];
+        }
+    }
+
+    // 2. Verify your indices
+    qDebug() << "Points per line:" << _filteredSelectionIndices.size();
+    qDebug() << "Number of lines:" << geneIndicesExp.size();
+
+    //option to normalize expresionValues 
+    if (false) {
+        // Normalize expression values to [0, 1] range
+        float minVal = *std::min_element(expresionValues.begin(), expresionValues.end());
+        float maxVal = *std::max_element(expresionValues.begin(), expresionValues.end());
+        if (maxVal - minVal > 0) {
+            for (auto& val : expresionValues) {
+                val = (val - minVal) / (maxVal - minVal);
+            }
+        }
+    }
+    //option to normalize rotatedYCordinates
+    if (false) {
+        // Normalize rotated Y coordinates to [0, 1] range
+        float minY = *std::min_element(coordValues.begin(), coordValues.end());
+        float maxY = *std::max_element(coordValues.begin(), coordValues.end());
+        if (maxY - minY > 0) {
+            for (auto& val : coordValues) {
+                val = (val - minY) / (maxY - minY);
+            }
+        }
+    }
+
+    auto lineData = convertToLineData(
+        expresionValues,
+        coordValues,
+        static_cast<int>(_filteredSelectionIndices.size()),
+        static_cast<int>(geneIndicesExp.size()),
+        colorsExpVals, // colors
+        true,              // coordIsX
+        true               // sortByX
+    );
+    // 4. Verify output
+    qDebug() << "Converted line data size:" << lineData.size();
+    if (!lineData.empty()) {
+        qDebug() << "First line points:" << lineData.first().points.size();
+        if (!lineData.first().points.empty()) {
+            qDebug() << "Sample point:" << lineData.first().points.first();
+        }
+    }
+
     // Set data in OpenGL widget
-    _linePlotViewWidget->setData(data, _settingsAction.getPointSizeAction().getValue(), _settingsAction.getPointOpacityAction().getValue());
+    _lineChartWidget->setLines(lineData);
+    _lineChartWidget->setShowPoints(_settingsAction.getDataset1OptionsHolder().getShowDataPointsInChartAction().isChecked());
+    _lineChartWidget->setShowLines(_settingsAction.getDataset1OptionsHolder().getShowDataLinesInChartAction().isChecked());
+
+    _numOfPointsInLine1 = lineData.first().points.size();
+    _settingsAction.getDataset1OptionsHolder().getLineSmoothingWindowAction().setMaximum(_numOfPointsInLine1);
+    _lineChartWidget->setConnectStatsLineN(_numOfPointsInLine1 * _settingsAction.getDataset1OptionsHolder().getConnectStatsLineAction().getValue());
+    _lineChartWidget->setConnectStatsLineType(HighPerfLineChart::ConnectStatsType::Mean);
+    _lineChartWidget->setConnectStatsLineEnabled(_settingsAction.getDataset1OptionsHolder().getShowConnectedStatsLineInChartAction().isChecked());
+
+    _lineChartWidget->setShowAvgNumPointsLabel(true);
+
+
+
+    //_lineChartWidget->setMovingAverageWindow(std::max(1, int(_numOfPointsInLine1 * _settingsAction.getDataset1OptionsHolder().getConnectStatsLineAction().getValue())));
+    _lineChartWidget->setMovingAverageWindow(_settingsAction.getDataset1OptionsHolder().getLineSmoothingWindowAction().getValue());
+    _lineChartWidget->setShowMovingAverageLine(_settingsAction.getDataset1OptionsHolder().getShowMovingAverageLineInChartAction().isChecked());
+    mv::theme().isSystemDarkColorSchemeActive() ?
+        _lineChartWidget->setBackgroundColor(Qt::black) :
+        _lineChartWidget->setBackgroundColor(Qt::white);
+    _lineChartWidget->setAxisFont(QFont("Arial", 12));
+    _lineChartWidget->setTickLabelFont(QFont("Arial", 10));
+    mv::theme().isSystemDarkColorSchemeActive() ?
+        _lineChartWidget->setAxisColor(Qt::white) :
+        _lineChartWidget->setAxisColor(Qt::black);
+    // Fix tick label color for correct contrast
+    mv::theme().isSystemDarkColorSchemeActive() ?
+        _lineChartWidget->setTickLabelColor(Qt::white) :
+        _lineChartWidget->setTickLabelColor(Qt::black);
+    _lineChartWidget->setXAxisName("Rotated Y coordinates");
+    _lineChartWidget->setYAxisName("Gene expression " + _selectedGene1);
+    _lineChartWidget->setShowLegend(false);
+    _lineChartWidget->setShowAvgNumPointsLabel(true);
+
+    */
 }
 
 
@@ -197,6 +296,138 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
 }
 
 
+QVector<LineData> convertToLineData(const std::vector<float>& vecAll, const std::vector<float>& vecCoord,
+    int pointsPerLine,
+    int numOfLines,
+    const QVector<QColor>& colors,
+    bool coordIsX,
+    bool sortByX)
+{
+    QVector<LineData> lines;
+
+    qDebug() << "Conversion started. Total elements:" << vecAll.size()
+        << "Points per line:" << pointsPerLine
+        << "Number of lines:" << numOfLines
+        << "coordIsX:" << coordIsX;
+
+    // Validate input
+    if (pointsPerLine < 1 || numOfLines < 1) {
+        qWarning() << "Invalid parameters - pointsPerLine:" << pointsPerLine
+            << "numOfLines:" << numOfLines;
+        return lines;
+    }
+
+    const size_t requiredSize = static_cast<size_t>(pointsPerLine * numOfLines);
+    if (vecAll.size() < requiredSize || vecCoord.size() < static_cast<size_t>(pointsPerLine)) {
+        qWarning() << "Insufficient data - Got:" << vecAll.size()
+            << "Need:" << requiredSize << "and vecCoord size:" << vecCoord.size();
+        return lines;
+    }
+
+    lines.reserve(numOfLines);
+
+    // Debug print first few values to verify data organization
+    if (!coordIsX) {
+        qDebug() << "First few x values (column order):";
+        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
+            for (int j = 0; j < std::min(5, numOfLines); ++j) {
+                size_t pos = static_cast<size_t>(i) * numOfLines + j;
+                qDebug() << "x[" << i << "][" << j << "]: pos" << pos << "=" << vecAll[pos];
+            }
+        }
+        qDebug() << "First few y values:";
+        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
+            qDebug() << "y[" << i << "]:" << vecCoord[i];
+        }
+    }
+    else {
+        qDebug() << "First few y values (column order):";
+        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
+            for (int j = 0; j < std::min(5, numOfLines); ++j) {
+                size_t pos = static_cast<size_t>(i) * numOfLines + j;
+                qDebug() << "y[" << i << "][" << j << "]: pos" << pos << "=" << vecAll[pos];
+            }
+        }
+        qDebug() << "First few x values:";
+        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
+            qDebug() << "x[" << i << "]:" << vecCoord[i];
+        }
+    }
+
+    for (int lineIdx = 0; lineIdx < numOfLines; ++lineIdx) {
+        LineData line;
+
+        // Set color
+        if (!colors.isEmpty() && lineIdx < colors.size()) {
+            line.color = colors[lineIdx];
+        }
+        else {
+            static const QVector<QColor> defaultColors = {
+                Qt::blue, Qt::green, Qt::red, Qt::cyan,
+                Qt::magenta, Qt::yellow, Qt::gray
+            };
+            line.color = defaultColors[lineIdx % defaultColors.size()];
+        }
+
+        line.points.reserve(pointsPerLine);
+
+        for (int pointIdx = 0; pointIdx < pointsPerLine; ++pointIdx) {
+            size_t pos = static_cast<size_t>(pointIdx) * numOfLines + lineIdx;
+            if (pos >= vecAll.size() || pointIdx >= static_cast<int>(vecCoord.size())) {
+                qWarning() << "Index out of bounds at line" << lineIdx
+                    << "point" << pointIdx;
+                continue;
+            }
+
+            float x, y;
+            if (!coordIsX) {
+                x = vecAll[pos];
+                y = vecCoord[pointIdx];
+            }
+            else {
+                x = vecCoord[pointIdx];
+                y = vecAll[pos];
+            }
+
+            if (!std::isfinite(x) || !std::isfinite(y)) {
+                qWarning() << "Non-finite point at line" << lineIdx
+                    << "point" << pointIdx << ":" << x << y;
+                continue;
+            }
+
+            line.points.append(QPointF(x, y));
+        }
+
+        // Sort points if requested
+        if (sortByX) {
+            if (coordIsX) {
+                std::sort(line.points.begin(), line.points.end(), [](const QPointF& a, const QPointF& b) {
+                    return a.x() < b.x();
+                    });
+            }
+            else {
+                std::sort(line.points.begin(), line.points.end(), [](const QPointF& a, const QPointF& b) {
+                    return a.y() < b.y();
+                    });
+            }
+        }
+
+        if (!line.points.isEmpty()) {
+            lines.append(line);
+            //qDebug() << "Added line" << lineIdx << "with" << line.points.size() << "points";
+            if (!line.points.isEmpty()) {
+                //qDebug() << "  First point:" << line.points.first().x() << line.points.first().y();
+                //qDebug() << "  Last point:" << line.points.last().x() << line.points.last().y();
+            }
+        }
+        else {
+            //qWarning() << "Skipping empty line" << lineIdx;
+        }
+    }
+
+    qDebug() << "Conversion complete. Generated" << lines.size() << "lines";
+    return lines;
+}
 
 // -----------------------------------------------------------------------------
 // LinePlotViewPluginFactory
@@ -229,9 +460,6 @@ LinePlotViewPluginFactory::LinePlotViewPluginFactory() :
 void LinePlotViewPluginFactory::initialize()
 {
     ViewPluginFactory::initialize();
-
-    // Create an instance of our GlobalSettingsAction (derived from PluginGlobalSettingsGroupAction) and assign it to the factory
-    setGlobalSettingsGroupAction(new GlobalSettingsAction(this, this));
 
     // Configure the status bar popup action
     _statusBarPopupAction.setDefaultWidgetFlags(StringAction::Label);

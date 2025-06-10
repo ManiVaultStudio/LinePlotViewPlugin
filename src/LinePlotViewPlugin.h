@@ -10,6 +10,7 @@
 #include "SettingsAction.h"
 #include<unordered_set>
 #include <QWidget>
+#include "HighPerfLineChart.h"
 
 /** All plugin related classes are in the ManiVault plugin namespace */
 using namespace mv::plugin;
@@ -46,6 +47,7 @@ public:
     /** Retrieves data to be shown and updates the OpenGL plot */
     void updatePlot();
 
+
 private:
 
     QString getCurrentDataSetID() const;
@@ -56,6 +58,7 @@ protected:
     SettingsAction              _settingsAction;        /** Settings action */
     mv::Dataset<Points>         _currentDataSet;        /** Points smart pointer */
     std::vector<unsigned int>   _currentDimensions;     /** Stores which dimensions of the current data are shown */
+    HighPerfLineChart* _lineChartWidget = nullptr;
 };
 
 
@@ -84,4 +87,5 @@ private:
     PluginStatusBarAction*  _statusBarAction;               /** For global action in a status bar */
     HorizontalGroupAction   _statusBarPopupGroupAction;     /** Popup group action for status bar action */
     StringAction            _statusBarPopupAction;          /** Popup action for the status bar */
+    
 };

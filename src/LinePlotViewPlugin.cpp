@@ -118,7 +118,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     });
 
     //createData();
-    createDataOptimized();
+    //createDataOptimized();
+    createDataLatest();
 
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -690,6 +691,320 @@ void LinePlotViewPlugin::createDataOptimized()
                     Dataset<Clusters> cFull = child->getFullDataset<Clusters>();
                     if (!cFull.isValid()) continue;
                     cFull->setGroupIndex(666);
+
+                    auto makeChildCluster = [&](Dataset<Points>& parentSplit) {
+                        auto ds = mv::data().createDataset("Cluster",
+                            child->getGuiName() + "_" + parentSplit->getGuiName(), parentSplit);
+                        ds->setGroupIndex(parentSplit->getGroupIndex());
+                        events().notifyDatasetAdded(ds);
+                        return ds;
+                        };
+
+                    Dataset<Clusters> cl1 = makeChildCluster(ds1);
+                    Dataset<Clusters> cl2 = makeChildCluster(ds2);
+
+                    for (const auto& cl : cFull->getClusters()) {
+                        std::vector<std::seed_seq::result_type> i1, i2;
+                        const auto& indices = cl.getIndices();
+                        for (int i : indices) {
+                            if (auto it = valueToIndex1.find(i); it != valueToIndex1.end())
+                                i1.push_back(it->second);
+                            else if (auto it = valueToIndex2.find(i); it != valueToIndex2.end())
+                                i2.push_back(it->second);
+                        }
+                        Cluster a = cl, b = cl;
+                        a.setIndices(i1);
+                        b.setIndices(i2);
+                        cl1->addCluster(a);
+                        cl2->addCluster(b);
+                    }
+
+                    datasetsToNotify.push_back(cl1);
+                    datasetsToNotify.push_back(cl2);
+                    qDebug() << "Finished processing cluster-type child" << idx;
+                }
+                ++idx;
+            }
+
+            ThreadData td1 = f1.result();
+            ThreadData td2 = f2.result();
+
+            auto setData = [&](ThreadData& td) {
+                auto full = td.target->getFullDataset<Points>();
+                if (full.isValid()) {
+                    full->setData(td.data.data(), td.indices.size(), td.dimNames.size());
+                    full->setDimensionNames(td.dimNames);
+                    datasetsToNotify.push_back(td.target);
+                }
+                };
+
+            setData(td1);
+            setData(td2);
+
+            for (auto& cf : childFutures) cf.waitForFinished();
+
+            for (auto& cc : completedChildren) {
+                auto full = cc.tgt->getFullDataset<Points>();
+                if (full.isValid()) {
+                    full->setData(cc.data.data(), cc.data.size() / cc.numDim, cc.numDim);
+                    full->setDimensionNames(cc.dims);
+                    datasetsToNotify.push_back(cc.tgt);
+                }
+            }
+
+            for (auto& dsPtr : datasetsToNotify) {
+                if (dsPtr.isValid())
+                    events().notifyDatasetDataChanged(dsPtr);
+            }
+
+            QCoreApplication::processEvents();
+            break;
+        }
+    }
+
+    qDebug() << "createDataOptimized: execution time =" << methodTimer.elapsed() << "ms";
+    qDebug() << "createDataOptimized: EXIT";
+}
+
+
+
+void LinePlotViewPlugin::createDataLatest()
+{
+    qDebug() << "createDataOptimized: ENTER";
+    QElapsedTimer methodTimer;
+    methodTimer.start();
+
+    auto datasets = mv::data().getAllDatasets();
+    qDebug() << "createDataOptimized: datasets.size() =" << datasets.size();
+    if (datasets.empty()) {
+        qDebug() << "createDataOptimized: No datasets available";
+        return;
+    }
+    QString clusterNameVal = "brain_section_label";
+    QString datasetName = "Xenium-CJ23";
+    int clusterGroup = 0;
+
+
+    mv::Datasets datasetsToNotify;
+    std::vector<int> dataset1Indices, dataset2Indices;
+    qDebug() << "createDataOptimized: Step 1 - Collect indices";
+
+    for (const auto& ds : datasets) {
+        qDebug() << "Checking dataset" << ds->getGuiName() << "type" << ds->getDataType().getTypeString();
+        if (ds->getDataType() == ClusterType && ds->getGuiName() == clusterNameVal) {
+            Dataset<Clusters> clusterDs = ds->getFullDataset<Clusters>();
+            if (!clusterDs.isValid()) return;
+
+            auto clusters = clusterDs->getClusters();
+            qDebug() << "clusters.size() =" << clusters.size();
+
+            size_t count1 = 0, count2 = 0;
+            std::vector<std::vector<QString>> arrayOfClusterPairs = {
+                { "CJ23.56.004.CX.42.01.06", "CJ23.56.004.CX.42.02.06" },
+                { "CJ23.56.004.CX.42.02.06", "CJ23.56.004.CX.42.03.07" },
+                { "CJ23.56.004.CX.42.03.07", "CJ23.56.004.CX.42.04.06" },
+                { "CJ23.56.004.CX.42.04.06", "CJ23.56.004.CX.42.05.06" },
+                { "CJ23.56.004.CX.42.05.06", "CJ23.56.004.CX.42.06.06" },
+                { "CJ23.56.004.CX.42.06.06", "CJ23.56.004.CX.42.07.06" },
+                { "CJ23.56.004.CX.42.07.06", "CJ23.56.004.CX.42.08.06" },
+                { "CJ23.56.004.CX.42.08.06", "CJ23.56.004.CX.42.09.07" },
+                { "CJ23.56.004.CX.42.09.07", "CJ23.56.004.CX.42.10.07" },
+                { "CJ23.56.004.CX.42.10.07", "CJ23.56.004.CX.42.13.07" },
+                { "CJ23.56.004.CX.42.13.07", "CJ23.56.004.CX.42.14.06" },
+                { "CJ23.56.004.CX.42.14.06", "CJ23.56.004.CX.42.15.06" },
+                { "CJ23.56.004.CX.42.15.06", "CJ23.56.004.CX.42.16.06" },
+                { "CJ23.56.004.CX.42.16.06", "CJ23.56.004.CX.42.17.06" },
+                { "CJ23.56.004.CX.42.17.06", "CJ23.56.004.CX.42.18.07" },
+                { "CJ23.56.004.CX.42.18.07", "CJ23.56.004.CX.42.19.06" },
+                { "CJ23.56.004.CX.42.19.06", "CJ23.56.004.CX.42.20.07" },
+                { "CJ23.56.004.CX.42.20.07", "CJ23.56.004.CX.42.22.06" },
+                { "CJ23.56.004.CX.42.22.06", "CJ23.56.004.CX.43.01.07" },
+                { "CJ23.56.004.CX.43.01.07", "CJ23.56.004.CX.43.04.06" },
+                { "CJ23.56.004.CX.43.04.06", "CJ23.56.004.CX.43.05.07" },
+                { "CJ23.56.004.CX.43.05.07", "CJ23.56.004.CX.43.06.06" },
+                { "CJ23.56.004.CX.43.06.06", "CJ23.56.004.CX.43.08.07" },
+                { "CJ23.56.004.CX.43.08.07", "CJ23.56.004.CX.43.10.06" },
+                { "CJ23.56.004.CX.43.10.06", "CJ23.56.004.CX.43.11.06" },
+                { "CJ23.56.004.CX.43.11.06", "CJ23.56.004.CX.43.12.06" },
+                { "CJ23.56.004.CX.43.12.06", "CJ23.56.004.CX.43.13.07" },
+                { "CJ23.56.004.CX.43.13.07", "CJ23.56.004.CX.43.15.06" },
+                { "CJ23.56.004.CX.43.15.06", "CJ23.56.004.CX.43.17.06" },
+                { "CJ23.56.004.CX.43.17.06", "CJ23.56.004.CX.43.19.07" },
+                { "CJ23.56.004.CX.43.19.07", "CJ23.56.004.CX.43.20.06" },
+                { "CJ23.56.004.CX.43.20.06", "CJ23.56.004.CX.43.21.07" },
+                { "CJ23.56.004.CX.43.21.07", "CJ23.56.004.CX.44.01.06" },
+                { "CJ23.56.004.CX.44.01.06", "CJ23.56.004.CX.44.03.07" },
+                { "CJ23.56.004.CX.44.03.07", "CJ23.56.004.CX.44.04.07" },
+                { "CJ23.56.004.CX.44.04.07", "CJ23.56.004.CX.44.05.06" },
+                { "CJ23.56.004.CX.44.05.06", "CJ23.56.004.CX.44.06.06" },
+                { "CJ23.56.004.CX.44.06.06", "CJ23.56.004.CX.44.07.07" },
+                { "CJ23.56.004.CX.44.07.07", "CJ23.56.004.CX.44.08.07" },
+                { "CJ23.56.004.CX.44.08.07", "CJ23.56.004.CX.44.09.06" },
+                { "CJ23.56.004.CX.44.09.06", "CJ23.56.004.CX.44.10.06" },
+                { "CJ23.56.004.CX.44.10.06", "CJ23.56.004.CX.44.11.07" },
+                { "CJ23.56.004.CX.44.11.07", "CJ23.56.004.CX.44.12.06" },
+                { "CJ23.56.004.CX.44.12.06", "CJ23.56.004.CX.44.13.06" },
+                { "CJ23.56.004.CX.44.13.06", "CJ23.56.004.CX.44.14.07" },
+                { "CJ23.56.004.CX.44.14.07", "CJ23.56.004.CX.44.15.07" }
+                        };
+
+            
+            QString cluster1 = arrayOfClusterPairs[clusterGroup][0];
+            QString cluster2 = arrayOfClusterPairs[clusterGroup][1];
+            for (const auto& cl : clusters) {
+                if (cl.getName() == cluster1)
+                {
+                    count1 += cl.getIndices().size();
+                }
+                else if (cl.getName() == cluster2)
+                {
+                    count2 += cl.getIndices().size();
+                }
+
+            }
+
+            dataset1Indices.reserve(count1);
+            dataset2Indices.reserve(count2);
+
+            for (const auto& cl : clusters) {
+                const auto& idx = cl.getIndices();
+                if (cl.getName() == cluster1)
+                {
+                    dataset1Indices.insert(dataset1Indices.end(), idx.begin(), idx.end());
+                }
+                else if (cl.getName() == cluster2)
+                {
+                    dataset2Indices.insert(dataset2Indices.end(), idx.begin(), idx.end());
+                }
+            }
+
+            qDebug() << "dataset1Indices.size() =" << dataset1Indices.size()
+                << ", dataset2Indices.size() =" << dataset2Indices.size();
+            break;
+        }
+    }
+
+    if (dataset1Indices.empty() || dataset2Indices.empty()) {
+        qDebug() << "No indices found in the datasets";
+        return;
+    }
+
+    std::unordered_map<int, int> valueToIndex1, valueToIndex2;
+    for (int i = 0; i < dataset1Indices.size(); ++i)
+        valueToIndex1[dataset1Indices[i]] = i;
+    for (int i = 0; i < dataset2Indices.size(); ++i)
+        valueToIndex2[dataset2Indices[i]] = i;
+    qDebug() << "Step 1 complete, lookup sets created";
+
+    qDebug() << "Step 2 - Process main Points dataset";
+    for (const auto& ds : datasets) {
+        if (ds->getDataType() == PointType && ds->getGuiName() == datasetName) {
+            Dataset<Points> mainDs = ds->getFullDataset<Points>();
+            if (!mainDs.isValid()) return;
+
+            //mainDs->setGroupIndex(666);
+            auto children = ds->getChildren();
+            qDebug() << "childrenDatasets.size() =" << children.size();
+
+            int numDim = mainDs->getNumDimensions();
+            auto dimNames = mainDs->getDimensionNames();
+            std::vector<int> allDims(numDim);
+            std::iota(allDims.begin(), allDims.end(), 0);
+
+            auto createSplit = [&](const QString& suffix, int group) -> Dataset<Points> {
+                auto p = mv::data().createDataset("Points", suffix);
+                p->setGroupIndex(group);
+                events().notifyDatasetAdded(p);
+                return p;
+                };
+
+            Dataset<Points> ds1 = createSplit("Section1_Xenium-CJ23", 1);
+            Dataset<Points> ds2 = createSplit("Section2_Xenium-CJ23", 2);
+
+            struct ThreadData {
+                std::vector<float> data;
+                std::vector<int> indices;
+                Dataset<Points> target;
+                std::vector<QString> dimNames;
+            };
+
+            ThreadData t1{ std::vector<float>(dataset1Indices.size() * numDim), dataset1Indices, ds1, dimNames };
+            ThreadData t2{ std::vector<float>(dataset2Indices.size() * numDim), dataset2Indices, ds2, dimNames };
+
+            auto process = [mainDs, &allDims](ThreadData td) {
+                mainDs->populateDataForDimensions(td.data, allDims, td.indices);
+                return td;
+                };
+
+            QFuture<ThreadData> f1 = QtConcurrent::run(process, std::move(t1));
+            QFuture<ThreadData> f2 = QtConcurrent::run(process, std::move(t2));
+
+            QVector<QFuture<void>> childFutures;
+
+            struct CompletedChild {
+                Dataset<Points> tgt;
+                std::vector<float> data;
+                std::vector<QString> dims;
+                int numDim;
+            };
+
+            QMutex resultMutex;
+            std::vector<CompletedChild> completedChildren;
+
+            int idx = 0;
+            for (const auto& child : children) {
+                qDebug() << "Processing child" << idx
+                    << "name:" << child->getGuiName()
+                    << "type:" << child->getDataType().getTypeString();
+
+                if (child->getDataType() == PointType) {
+                    Dataset<Points> childFull = child->getFullDataset<Points>();
+                    if (!childFull.isValid()) continue;
+
+                    //childFull->setGroupIndex(666);
+
+                    auto makeChildTargets = [&](Dataset<Points> base, Dataset<Points>& parentSplit) {
+                        return mv::data().createDataset("Points",
+                            base->getGuiName() + "_" + parentSplit->getGuiName(), parentSplit);
+                        };
+
+                    Dataset<Points> cp1 = makeChildTargets(child, ds1);
+                    cp1->setGroupIndex(1);
+                    events().notifyDatasetAdded(cp1);
+
+                    Dataset<Points> cp2 = makeChildTargets(child, ds2);
+                    cp2->setGroupIndex(2);
+                    events().notifyDatasetAdded(cp2);
+
+                    int nDim2 = childFull->getNumDimensions();
+                    std::vector<QString> dn2 = childFull->getDimensionNames();
+                    if (dn2.size() != nDim2) {
+                        dn2.clear();
+                        for (int d = 0; d < nDim2; ++d) dn2.push_back(QString("Dim_%1").arg(d + 1));
+                    }
+                    std::vector<int> dims2(nDim2);
+                    std::iota(dims2.begin(), dims2.end(), 0);
+
+                    auto spawnChild = [childFull, dims2, nDim2, &resultMutex, &completedChildren]
+                    (std::vector<int> indices, Dataset<Points> tgt, std::vector<QString> dims) {
+                        return [=, &resultMutex, &completedChildren]() mutable {
+                            std::vector<float> data(indices.size() * nDim2);
+                            childFull->populateDataForDimensions(data, dims2, indices);
+                            CompletedChild cc{ tgt, std::move(data), dims, nDim2 };
+
+                            QMutexLocker locker(&resultMutex);
+                            completedChildren.push_back(std::move(cc));
+                            };
+                        };
+
+                    childFutures << QtConcurrent::run(spawnChild(dataset1Indices, cp1, dn2));
+                    childFutures << QtConcurrent::run(spawnChild(dataset2Indices, cp2, dn2));
+                }
+                else if (child->getDataType() == ClusterType) {
+                    qDebug() << "Processing cluster-type child" << idx;
+                    Dataset<Clusters> cFull = child->getFullDataset<Clusters>();
+                    if (!cFull.isValid()) continue;
+                    //cFull->setGroupIndex(666);
 
                     auto makeChildCluster = [&](Dataset<Points>& parentSplit) {
                         auto ds = mv::data().createDataset("Cluster",

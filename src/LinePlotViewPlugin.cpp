@@ -64,8 +64,12 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
         const auto datasetId = dataset->getId();
         const auto dataType = dataset->getDataType();
         const auto dataTypes = DataTypes({ PointType });
-
-        if (dataTypes.contains(dataType)) {
+        int numOfPointsChildren = 0;
+        for (const auto& child : dataset->getChildren()) {
+            if (child->getDataType() == PointType)
+                numOfPointsChildren++;
+        }
+        if (dataTypes.contains(dataType) && numOfPointsChildren>0) {
 
             if (datasetId == getCurrentDataSetID()) {
                 dropRegions << new DropWidget::DropRegion(this, "Warning", "Data already loaded", "exclamation-circle", false);
@@ -283,13 +287,21 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
 
     const auto numberOfDatasets = datasets.count();
 
-    if (numberOfDatasets >= 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
-        auto pluginTriggerAction = new PluginTriggerAction(const_cast<LinePlotViewPluginFactory*>(this), this, "LinePlot", "LinePlot view data", icon(), [this, getPluginInstance, datasets](PluginTriggerAction& pluginTriggerAction) -> void {
-            for (auto& dataset : datasets)
-                getPluginInstance()->loadData(Datasets({ dataset }));
-        });
+    if (numberOfDatasets == 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
+        auto children = datasets.first()->getChildren();
+        int numOfPointsChildren = 0;
+        for (const auto& child : children) {
+            if (child->getDataType() == PointType)
+                numOfPointsChildren++;
+        }
+        if(numOfPointsChildren>0)
+            {   auto pluginTriggerAction = new PluginTriggerAction(const_cast<LinePlotViewPluginFactory*>(this), this, "LinePlot", "LinePlot view data", icon(), [this, getPluginInstance, datasets](PluginTriggerAction& pluginTriggerAction) -> void {
+                for (auto& dataset : datasets)
+                    getPluginInstance()->loadData(Datasets({ dataset }));
+                });
 
-        pluginTriggerActions << pluginTriggerAction;
+            pluginTriggerActions << pluginTriggerAction;
+            }
     }
 
     return pluginTriggerActions;

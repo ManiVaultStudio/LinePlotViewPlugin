@@ -24,7 +24,8 @@ endif()
 # -----------------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------------
-find_package(Qt6 COMPONENTS Widgets WebEngineWidgets OpenGL OpenGLWidgets Concurrent REQUIRED)
+find_package(Qt6 COMPONENTS Widgets WebEngineWidgets OpenGLWidgets Concurrent REQUIRED)
+find_package(OpenGL REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData CONFIG QUIET)
 
@@ -37,29 +38,24 @@ set(PLUGIN_SOURCES
     src/LinePlotViewPlugin.h
     src/LinePlotViewPlugin.cpp
     PluginInfo.json
-)
-
-set(PLUGIN_WIDGETS
-    src/LinePlotViewWidget.h
+	src/LinePlotViewWidget.h
     src/LinePlotViewWidget.cpp
-)
-
-set(PLUGIN_ACTIONS
-    src/SettingsAction.h
+	src/HighPerfLineChart.h
+	src/HighPerfLineChart.cpp
+	src/SettingsAction.h
     src/SettingsAction.cpp
     src/GlobalSettingsAction.h
     src/GlobalSettingsAction.cpp
 )
 
+
 source_group(Plugin FILES ${PLUGIN_SOURCES})
-source_group(Widget FILES ${PLUGIN_WIDGETS})
-source_group(Actions FILES ${PLUGIN_ACTIONS})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
 # Create dynamic library for the plugin
-add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES} ${PLUGIN_WIDGETS} ${PLUGIN_ACTIONS})
+add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES})
 
 # -----------------------------------------------------------------------------
 # Target include directories
@@ -84,9 +80,13 @@ endif()
 # Link to Qt libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::WebEngineWidgets)
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGL)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Concurrent )
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32)
+else()
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL)
+endif()
 
 # Link to ManiVault and data plugins
 target_link_libraries(${PROJECT_NAME} PRIVATE ManiVault::Core)

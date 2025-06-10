@@ -47,11 +47,7 @@ public:
     void updatePlot();
 
 private:
-    void createData();
-    void createDataFast();
-    void createDataLatest();
 
-    void createDataOptimized();
     QString getCurrentDataSetID() const;
 
 protected:

@@ -847,6 +847,11 @@ void LinePlotViewPlugin::createDataLatest()
                 { "CJ23.56.004.CX.44.13.06", "CJ23.56.004.CX.44.14.07" },
                 { "CJ23.56.004.CX.44.14.07", "CJ23.56.004.CX.44.15.07" }
                         };
+            QSet<QString> allClusterList;
+            for (const auto & pair : arrayOfClusterPairs) {
+                allClusterList.insert(pair[0]);
+                allClusterList.insert(pair[1]);
+            }
 
             
             QString cluster1 = arrayOfClusterPairs[clusterGroup][0];

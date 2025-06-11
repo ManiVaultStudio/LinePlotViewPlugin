@@ -1,1 +1,2 @@
-# LinePlotViewPlugin
+# LinePlot View Plugin
+

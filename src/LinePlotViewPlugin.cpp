@@ -328,7 +328,29 @@ void LinePlotViewPlugin::init()
         };
     connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, pointDatasetChanged);
 
+    const auto variantOptionChanged = [this]() -> void {
+        if (_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction().isChecked())
+        {
+            updateChart();
+        }
+        else
+        {
+            convertDataAndUpdateChart();
+        }
+        };
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction(), &ToggleAction::toggled, this, variantOptionChanged);
 
+    const auto variantChanged = [this]() -> void {
+        if (_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction().isChecked())
+        {
+            updateChart();
+        }
+        else
+        {
+            convertDataAndUpdateChart();
+        }
+        };
+    connect(&_settingsAction.getDatasetOptionsHolder().getLineDataVariantAction(), &VariantAction::variantChanged, this, variantChanged);
 
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
@@ -355,6 +377,14 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
     }
     
 }
+
+void LinePlotViewPlugin::updateChart()
+{
+    auto variant = _settingsAction.getDatasetOptionsHolder().getLineDataVariantAction().getVariant();
+
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(variant.toMap());
+}
+
 
 void LinePlotViewPlugin::convertDataAndUpdateChart()
 {

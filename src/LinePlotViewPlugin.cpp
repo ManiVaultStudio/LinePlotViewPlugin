@@ -203,6 +203,8 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
     QVariantMap root;
     root["data"] = payload;
     root["statLine"] = statLine;
+    // --- Add chart title ---
+    root["title"] = "Example Line Chart Title";
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root);

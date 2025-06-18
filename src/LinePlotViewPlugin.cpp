@@ -110,6 +110,73 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
 
+    QVariant root= prepareData();
+
+    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+}
+
+void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
+{
+    auto selectionSet = _currentDataSet->getSelection<Points>();
+    auto& selectionIndices = selectionSet->indices;
+
+    selectionIndices.clear();
+    selectionIndices.reserve(_currentDataSet->getNumPoints());
+    for (const auto id : selectedIDs) {
+        selectionIndices.push_back(id);
+    }
+
+    if (_currentDataSet->isDerivedData())
+        events().notifyDatasetDataSelectionChanged(_currentDataSet->getSourceDataset<DatasetImpl>());
+    else
+        events().notifyDatasetDataSelectionChanged(_currentDataSet);
+}
+
+QString LinePlotViewPlugin::getCurrentDataSetID() const
+{
+    if (_currentDataSet.isValid())
+        return _currentDataSet->getId();
+    else
+        return QString{};
+}
+
+void LinePlotViewPlugin::createData()
+{
+    auto points = mv::data().createDataset<Points>("Points", "LinePlotViewData");
+
+    int numPoints = 2;
+    int numDimensions = 5;
+
+    const std::vector<QString> dimNames {"Dim 1", "Dim 2", "Dim 3", "Dim 4", "Dim 5", };
+    const QVariant pointNames = QStringList{ "Data point 1", "Data point 2" };
+    std::vector<float> lineData;
+
+    qDebug() << "LinePlotViewPlugin::createData: Create some line data. 2 points, each with 5 dimensions";
+
+    {
+        std::default_random_engine generator;
+        std::uniform_real_distribution<float> distribution(0.0, 10.0);
+
+        for (int i = 0; i < numPoints * numDimensions; i++)
+        {
+            lineData.push_back(distribution(generator));
+            qDebug() << "lineData[" << i << "]: " << lineData[i];
+        }
+    }
+
+    points->setData(lineData.data(), numPoints, numDimensions);
+    points->setDimensionNames(dimNames);
+
+    points->setProperty("PointNames", pointNames);
+
+    events().notifyDatasetDataChanged(points);
+    events().notifyDatasetDataDimensionsChanged(points);
+}
+
+QVariant LinePlotViewPlugin::prepareData()
+{
+
     QVariantList payload;
     {
         QVariantMap entry1;
@@ -189,66 +256,8 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
     root["title"] = "Example Line Chart Title";
     root["lineColor"] = "#1f77b4";
 
-    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root);
-}
-
-void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
-{
-    auto selectionSet = _currentDataSet->getSelection<Points>();
-    auto& selectionIndices = selectionSet->indices;
-
-    selectionIndices.clear();
-    selectionIndices.reserve(_currentDataSet->getNumPoints());
-    for (const auto id : selectedIDs) {
-        selectionIndices.push_back(id);
-    }
-
-    if (_currentDataSet->isDerivedData())
-        events().notifyDatasetDataSelectionChanged(_currentDataSet->getSourceDataset<DatasetImpl>());
-    else
-        events().notifyDatasetDataSelectionChanged(_currentDataSet);
-}
-
-QString LinePlotViewPlugin::getCurrentDataSetID() const
-{
-    if (_currentDataSet.isValid())
-        return _currentDataSet->getId();
-    else
-        return QString{};
-}
-
-void LinePlotViewPlugin::createData()
-{
-    auto points = mv::data().createDataset<Points>("Points", "LinePlotViewData");
-
-    int numPoints = 2;
-    int numDimensions = 5;
-
-    const std::vector<QString> dimNames {"Dim 1", "Dim 2", "Dim 3", "Dim 4", "Dim 5", };
-    const QVariant pointNames = QStringList{ "Data point 1", "Data point 2" };
-    std::vector<float> lineData;
-
-    qDebug() << "LinePlotViewPlugin::createData: Create some line data. 2 points, each with 5 dimensions";
-
-    {
-        std::default_random_engine generator;
-        std::uniform_real_distribution<float> distribution(0.0, 10.0);
-
-        for (int i = 0; i < numPoints * numDimensions; i++)
-        {
-            lineData.push_back(distribution(generator));
-            qDebug() << "lineData[" << i << "]: " << lineData[i];
-        }
-    }
-
-    points->setData(lineData.data(), numPoints, numDimensions);
-    points->setDimensionNames(dimNames);
-
-    points->setProperty("PointNames", pointNames);
-
-    events().notifyDatasetDataChanged(points);
-    events().notifyDatasetDataDimensionsChanged(points);
+    QVariant data = root;
+    return data;
 }
 
 

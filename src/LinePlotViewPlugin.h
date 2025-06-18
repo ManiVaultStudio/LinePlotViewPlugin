@@ -68,6 +68,8 @@ private:
     /** We create and publish some data in order to provide an self-contained line project */
     void createData();
 
+    QVariant prepareData();
+
 private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page
     DropWidget*             _dropWidget;        // Widget for drag and drop behavior

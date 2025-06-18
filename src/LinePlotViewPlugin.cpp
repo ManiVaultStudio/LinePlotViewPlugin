@@ -294,7 +294,23 @@ void LinePlotViewPlugin::init()
                 _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
                 _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
             }
-
+            auto children = _currentDataSet->getChildren();
+            Datasets clusterDatasets;
+            for (const auto& child : children)
+            {
+                if (child->getDataType() == ClusterType) {
+                    clusterDatasets.push_back(child);
+                }
+            }
+            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
+            if (clusterDatasets.isEmpty())
+            {
+                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(-1);
+            }
+            else
+            {
+                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(0);
+            }
 
             
         }
@@ -305,6 +321,8 @@ void LinePlotViewPlugin::init()
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets({});
+            
         }
         events().notifyDatasetDataChanged(_currentDataSet);
         };
@@ -314,6 +332,7 @@ void LinePlotViewPlugin::init()
 
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
 
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
@@ -348,7 +367,7 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
     {
         qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
         QVector<float> coordvalues;
-        //QVector<QPair<QString, QColor>> categoryValues;
+        
 
         const auto numPoints = _currentDataSet->getNumPoints();
         const auto numDimensions = _currentDataSet->getNumDimensions();
@@ -394,6 +413,33 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         }
         //set the category values as null for now, we can add categories later
         QVector<QPair<QString, QColor>> categoryValues;
+        Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
+        if (clusterDataset.isValid())
+        {
+            categoryValues.reserve(numPoints);
+            //fill in temp values in categoryValues
+            for (unsigned int i = 0; i < numPoints; ++i) {
+                categoryValues.push_back({ QString::number(i), QColor(Qt::black) });
+            }
+            auto clusters = clusterDataset->getClusters();
+            for (const auto& cluster : clusters)
+            {
+                auto clusterName = cluster.getName();
+                auto clusterColor = cluster.getColor();
+                auto clusterIndices = cluster.getIndices();
+                if (clusterName.isEmpty() || clusterColor.isValid() == false || clusterIndices.empty()) {
+                    continue; // Skip invalid clusters
+                }
+                for (const auto& index : clusterIndices) {
+                    if (index < numPoints) {
+                        categoryValues[index] = { clusterName, clusterColor };
+                    }
+                }
+            }
+
+        }
+
+
         SmoothingType smoothing = SmoothingType::CubicSpline;
         int windowSize = 500;
         NormalizationType normalization = NormalizationType::ZScore;

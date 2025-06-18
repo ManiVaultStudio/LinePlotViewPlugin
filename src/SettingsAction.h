@@ -71,9 +71,13 @@ public:
         const DimensionPickerAction& getDataDimensionYSelectionAction() const { return _dataDimensionYSelectionAction; }
         DimensionPickerAction& getDataDimensionYSelectionAction() { return _dataDimensionYSelectionAction; }
 
+        const DatasetPickerAction& getClusterDatasetAction() const { return _clusterDatasetAction; }
+        DatasetPickerAction& getClusterDatasetAction() { return _clusterDatasetAction; }
+
     protected:
         SettingsAction& _settingsOptions;
         DatasetPickerAction _pointDatasetAction;
+        DatasetPickerAction _clusterDatasetAction;
         DimensionPickerAction _dataDimensionXSelectionAction;
         DimensionPickerAction _dataDimensionYSelectionAction;
         VariantAction _lineDataVariant;

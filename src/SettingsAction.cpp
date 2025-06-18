@@ -25,12 +25,14 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
 {
     setSerializationName("LinePlotViewPlugin:Settings");
     _datasetOptionsHolder.getPointDatasetAction().setSerializationName("LayerSurfer:PointDataset");
+    _datasetOptionsHolder.getClusterDatasetAction().setSerializationName("LayerSurfer:ClusterDataset");
     _datasetOptionsHolder.getLineDataVariantAction().setSerializationName("LayerSurfer:LineDataVariant");
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setSerializationName("LayerSurfer:DataDimensionXSelection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setSerializationName("LayerSurfer:DataDimensionYSelection");
     _datasetOptionsHolder.getDataFromVariantAction().setSerializationName("LayerSurfer:DataFromVariant");
     
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
+    _datasetOptionsHolder.getClusterDatasetAction().setToolTip("Cluster Dataset");
     _datasetOptionsHolder.getLineDataVariantAction().setToolTip("Line Data Variant");
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setToolTip("Data Dimension X Selection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setToolTip("Data Dimension Y Selection");
@@ -41,6 +43,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     });
 
     _datasetOptionsHolder.getPointDatasetAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _datasetOptionsHolder.getClusterDatasetAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataFromVariantAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
@@ -56,7 +59,8 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     _lineDataVariant(this, "Line Data Variant"),
     _dataDimensionXSelectionAction(this, "Data Dimension X Selection"),
     _dataDimensionYSelectionAction(this, "Data Dimension Y Selection"),
-    _dataFromVariantAction(this, "Use Data From Variant")
+    _dataFromVariantAction(this, "Use Data From Variant"),
+    _clusterDatasetAction(this, "Cluster dataset")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -65,6 +69,7 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     addAction(&_pointDatasetAction);
     addAction(&_dataDimensionXSelectionAction);
     addAction(&_dataDimensionYSelectionAction);
+    addAction(&_clusterDatasetAction);
     //addAction(&_dataFromVariantAction);
     //addAction(&_lineDataVariant);
 }
@@ -73,6 +78,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
 {
     WidgetAction::fromVariantMap(variantMap);
     _datasetOptionsHolder.getPointDatasetAction().fromParentVariantMap(variantMap);
+    _datasetOptionsHolder.getClusterDatasetAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataFromVariantAction().fromParentVariantMap(variantMap);
@@ -83,6 +89,7 @@ QVariantMap SettingsAction::toVariantMap() const
 {
     QVariantMap variantMap = WidgetAction::toVariantMap();
     _datasetOptionsHolder.getPointDatasetAction().insertIntoVariantMap(variantMap);
+    _datasetOptionsHolder.getClusterDatasetAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataFromVariantAction().insertIntoVariantMap(variantMap);

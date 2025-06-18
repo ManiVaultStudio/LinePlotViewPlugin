@@ -2,13 +2,13 @@
 // when emitting qt_js_setDataInJS from the communication object
 // The connection is established in qwebchannel.tools.js
 function drawChart(d) {
-    if (d != null && d.length < 1) {
+    if (!d || d.length < 1) {
         log("LineViewJS: line_chart.tools.js: data empty")
         return
     }
 
     log("LineViewJS: line_chart.tools.js: draw chart")
-
+    log(d);
     // Defensive: Ensure LineChart is defined before using it
     if (typeof window.chart === "undefined") {
         if (typeof LineChart !== "undefined" && typeof LineChart.chart === "function") {
@@ -19,8 +19,17 @@ function drawChart(d) {
         }
     }
 
-    // remove possible old chart 
+    // Remove possible old chart 
     d3.select("div#container").select("svg").remove();
+
+    // Convert data to expected format: [{x: Number, y: Number}, ...]
+    // x: cell y-coordinate, y: gene expression value
+    var parsedData = d.map(function(row) {
+        return {
+            x: +row.x, // cell y-coordinate (numerical)
+            y: +row.y  // gene expression value (numerical)
+        };
+    });
 
     // config chart
     window.chart.config({
@@ -35,20 +44,8 @@ function drawChart(d) {
         .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("viewBox", "0 0 " + window.innerWidth + " " + window.innerHeight)
         .classed("svg-content", true)
-        .datum(d)
+        .datum(parsedData)
         .call(window.chart);
 
-    // Pass selected item ID to ManiVault
-    d3.select("div#container").select("svg").selectAll("polygon").on('click', function (event, dd) {
-        if (!event) event = d3.event;
-        if (event && event.stopPropagation) event.stopPropagation();
-        passSelectionToQt([window.chart.config().tooltipFormatClass(dd.className)])
-    });
-
-    // De-select by clicking outside polygons
-    d3.selectAll("div#container").select("svg").on('click', function (event) {
-        if (!event) event = d3.event;
-        if (event && event.stopPropagation) event.stopPropagation();
-        passSelectionToQt([])
-    });
+    // No polygon/area selection for line chart, so skip click handlers
 }

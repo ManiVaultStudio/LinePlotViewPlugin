@@ -67,3 +67,20 @@
 .line-chart .d3-exit {
     opacity: 0
 }
+
+/* Optional: minimal styling for the new line chart */
+.line-chart path {
+    stroke-width: 2;
+    fill: none;
+}
+
+.line-chart .axis text {
+    font-family: sans-serif;
+    font-size: 10px;
+}
+
+.line-chart .axis path,
+.line-chart .axis line {
+    stroke: grey;
+    stroke-width: 1;
+}

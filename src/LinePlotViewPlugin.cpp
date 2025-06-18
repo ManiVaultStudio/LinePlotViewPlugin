@@ -123,37 +123,34 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
 
-    // convert data from ManiVault PointData to a JSON structure
+    // Example data for the line chart: x = cell y-coordinate, y = gene expression value
     QVariantList payload;
-    QVariantMap entry;
+    {
+        QVariantMap entry1;
+        entry1["x"] = 1.0; // cell y-coordinate
+        entry1["y"] = 5.2; // gene expression value
+        payload << entry1;
 
-    _currentDataSet->visitFromBeginToEnd([&entry, &payload, this](auto beginOfData, auto endOfData)
-        {
-            auto pointNames = _currentDataSet->getProperty("PointNames");
-            auto dimNames = _currentDataSet->getDimensionNames();
-            auto numDims = dimNames.size();
+        QVariantMap entry2;
+        entry2["x"] = 2.0;
+        entry2["y"] = 7.8;
+        payload << entry2;
 
-            for (unsigned int pointId = 0; pointId < _currentDataSet->getNumPoints(); pointId++)
-            {
-                entry.clear();
+        QVariantMap entry3;
+        entry3["x"] = 3.0;
+        entry3["y"] = 6.1;
+        payload << entry3;
 
-                entry["className"] = pointNames.isValid() ? pointNames.value<QStringList>()[pointId] : QString::number(pointId);
+        QVariantMap entry4;
+        entry4["x"] = 4.0;
+        entry4["y"] = 8.3;
+        payload << entry4;
 
-                QVariantList values;
-
-                for (uint32_t dimId = 0; dimId < numDims; dimId++)
-                {
-                    QVariantMap axval;
-                    axval["axis"] = dimNames[dimId];
-                    axval["value"] = static_cast<float>(beginOfData[pointId * numDims + dimId]);
-                    values.append(axval);
-                }
-
-                entry["axes"] = values;
-
-                payload.append(entry);
-            }
-        });
+        QVariantMap entry5;
+        entry5["x"] = 5.0;
+        entry5["y"] = 4.7;
+        payload << entry5;
+    }
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(payload);

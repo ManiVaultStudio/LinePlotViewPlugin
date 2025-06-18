@@ -176,3 +176,7 @@
     opacity: 1 !important;
     filter: brightness(1.2);
 }
+.main-line-segment.highlighted-bar {
+    stroke: #d62728;
+    stroke-width: 4;
+}

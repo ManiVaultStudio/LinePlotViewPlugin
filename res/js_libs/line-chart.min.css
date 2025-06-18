@@ -146,3 +146,33 @@
     z-index: 10;
     pointer-events: none;
 }
+
+.line-chart .highlighted-bar {
+    stroke: #222;
+    stroke-width: 2;
+    opacity: 1 !important;
+    filter: brightness(1.2);
+}
+
+.line-chart .hover-tooltip {
+    font-family: sans-serif;
+    font-size: 14px;
+    fill: #222;
+    pointer-events: none;
+}
+.linechart-tooltip {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+
+.line-chart .main-line-segment {
+    cursor: pointer;
+}
+
+.category-bar.highlighted-bar {
+    stroke: #222;
+    stroke-width: 2;
+    opacity: 1 !important;
+    filter: brightness(1.2);
+}

@@ -6,7 +6,7 @@
 
 #include <vector>
 #include <random>
-
+#include <algorithm>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -18,6 +18,189 @@
 Q_PLUGIN_METADATA(IID "studio.manivault.LinePlotViewPlugin")
 
 using namespace mv;
+
+
+QVector<QPair<float, float>> applyNormalization(
+    const QVector<QPair<float, float>>& data,
+    NormalizationType type)
+{
+    if (type == NormalizationType::None) return data;
+
+    QVector<QPair<float, float>> result;
+    QVector<float> xVals, yVals;
+    for (const auto& pt : data) {
+        xVals.append(pt.first);
+        yVals.append(pt.second);
+    }
+
+    float xMean = 0, xStd = 1, xMin = 0, xMax = 1;
+    float yMean = 0, yStd = 1, yMin = 0, yMax = 1;
+    int n = data.size();
+
+    if (type == NormalizationType::ZScore || type == NormalizationType::MinMax) {
+        for (int i = 0; i < n; ++i) {
+            xMean += xVals[i];
+            yMean += yVals[i];
+        }
+        xMean /= n;
+        yMean /= n;
+
+        xMin = *std::min_element(xVals.begin(), xVals.end());
+        xMax = *std::max_element(xVals.begin(), xVals.end());
+        yMin = *std::min_element(yVals.begin(), yVals.end());
+        yMax = *std::max_element(yVals.begin(), yVals.end());
+
+        if (type == NormalizationType::ZScore) {
+            xStd = std::sqrt(std::accumulate(xVals.begin(), xVals.end(), 0.0f,
+                [xMean](float acc, float v) { return acc + (v - xMean) * (v - xMean); }) / n);
+            yStd = std::sqrt(std::accumulate(yVals.begin(), yVals.end(), 0.0f,
+                [yMean](float acc, float v) { return acc + (v - yMean) * (v - yMean); }) / n);
+            xStd = std::max(xStd, 1e-6f);
+            yStd = std::max(yStd, 1e-6f);
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        float x = xVals[i], y = yVals[i];
+        switch (type) {
+        case NormalizationType::ZScore:
+            result.append({ (x - xMean) / xStd, (y - yMean) / yStd });
+            break;
+        case NormalizationType::MinMax:
+            result.append({ (x - xMin) / (xMax - xMin + 1e-6f), (y - yMin) / (yMax - yMin + 1e-6f) });
+            break;
+        case NormalizationType::DecimalScaling:
+        {
+            int jx = (int)std::ceil(std::log10(std::fabs(*std::max_element(xVals.begin(), xVals.end(),
+                [](float a, float b) { return std::fabs(a) < std::fabs(b); })) + 1e-6f));
+            int jy = (int)std::ceil(std::log10(std::fabs(*std::max_element(yVals.begin(), yVals.end(),
+                [](float a, float b) { return std::fabs(a) < std::fabs(b); })) + 1e-6f));
+            result.append({ x / std::pow(10, jx), y / std::pow(10, jy) });
+            break;
+        }
+        default:
+            result.append({ x, y });
+            break;
+        }
+    }
+    return result;
+}
+
+QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    if (windowSize < 1 || data.size() < windowSize) return data;
+    for (int i = 0; i <= data.size() - windowSize; ++i) {
+        float sumX = 0, sumY = 0;
+        for (int j = 0; j < windowSize; ++j) {
+            sumX += data[i + j].first;
+            sumY += data[i + j].second;
+        }
+        smoothed.append({ sumX / windowSize, sumY / windowSize });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applySavitzkyGolay(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    int half = windowSize / 2;
+    for (int i = half; i < data.size() - half; ++i) {
+        float sumY = 0;
+        for (int j = -half; j <= half; ++j) sumY += data[i + j].second;
+        smoothed.append({ data[i].first, sumY / windowSize });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    int half = windowSize / 2;
+    QVector<float> kernel(windowSize);
+    float sigma = windowSize / 6.0f;
+    float sum = 0.0f;
+    for (int i = 0; i < windowSize; ++i) {
+        int x = i - half;
+        kernel[i] = expf(-0.5f * (x * x) / (sigma * sigma));
+        sum += kernel[i];
+    }
+    for (float& val : kernel) val /= sum;
+
+    for (int i = half; i < data.size() - half; ++i) {
+        float y = 0.0f;
+        for (int j = -half; j <= half; ++j)
+            y += data[i + j].second * kernel[j + half];
+        smoothed.append({ data[i].first, y });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyExponentialMovingAverage(const QVector<QPair<float, float>>& data, float alpha = 0.2f) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.isEmpty()) return data;
+    float ema = data[0].second;
+    for (const auto& point : data) {
+        ema = alpha * point.second + (1 - alpha) * ema;
+        smoothed.append({ point.first, ema });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    int half = windowSize / 2;
+    for (int i = half; i < data.size() - half; ++i) {
+        QVector<float> window;
+        for (int j = -half; j <= half; ++j)
+            window.append(data[i + j].second);
+        std::sort(window.begin(), window.end());
+        smoothed.append({ data[i].first, window[half] });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyLinearInterpolation(const QVector<QPair<float, float>>& data, int step) {
+    QVector<QPair<float, float>> interpolated;
+    for (int i = 0; i < data.size() - step; i += step) {
+        interpolated.append(data[i]);
+        float midX = (data[i].first + data[i + step].first) / 2.0f;
+        float midY = (data[i].second + data[i + step].second) / 2.0f;
+        interpolated.append({ midX, midY });
+    }
+    interpolated.append(data.last());
+    return interpolated;
+}
+
+QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<float, float>>& data) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < 3) return data;
+    smoothed.append(data.first());
+    for (int i = 1; i < data.size() - 1; ++i) {
+        float x = (data[i - 1].first + data[i].first + data[i + 1].first) / 3.0f;
+        float y = (data[i - 1].second + data[i].second + data[i + 1].second) / 3.0f;
+        smoothed.append({ x, y });
+    }
+    smoothed.append(data.last());
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyMinMaxSampling(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> result;
+    for (int i = 0; i < data.size(); i += windowSize) {
+        int end = std::min(i + windowSize, static_cast<int>(data.size()));
+        if (end - i < 2) {
+            result.append(data[i]);
+            continue;
+        }
+        auto minIt = std::min_element(data.begin() + i, data.begin() + end, [](auto a, auto b) { return a.second < b.second; });
+        auto maxIt = std::max_element(data.begin() + i, data.begin() + end, [](auto a, auto b) { return a.second < b.second; });
+        result.append(*minIt);
+        if (minIt != maxIt) result.append(*maxIt);
+    }
+    return result;
+}
+
 
 LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     ViewPlugin(factory),
@@ -211,9 +394,11 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         }
         //set the category values as null for now, we can add categories later
         QVector<QPair<QString, QColor>> categoryValues;
-
+        SmoothingType smoothing = SmoothingType::CubicSpline;
+        int windowSize = 500;
+        NormalizationType normalization = NormalizationType::ZScore;
         //QVariant root=prepareDataSample();
-        root = prepareData(coordvalues, categoryValues);
+        root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
 
         qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
   
@@ -247,90 +432,102 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
         return QString{};
 }
 
-QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues)
+QVariant LinePlotViewPlugin::prepareData(
+    QVector<float>& coordvalues,
+    QVector<QPair<QString, QColor>>& categoryValues,
+    SmoothingType smoothing,
+    int smoothingParam,
+    NormalizationType normalization
+)
 {
-    if (coordvalues.isEmpty()) {
-        qDebug() << "prepareData: No data provided, returning empty QVariant";
-        return QVariant();
-    }
-    qDebug() << "prepareData: Preparing data for line chart";
-
-    if (coordvalues.size() % 2 != 0) {
-        qDebug() << "prepareData: coordvalues size is not even, returning empty QVariant";
-        return QVariant();
-    }
-    if (coordvalues.size() < 2) {
-        qDebug() << "prepareData: coordvalues size is less than 2, returning empty QVariant";
+    if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
+        qDebug() << "prepareData: Invalid input data";
         return QVariant();
     }
 
+    // Convert flat coordvalues to point pairs
+    QVector<QPair<float, float>> rawData;
+    for (int i = 0; i < coordvalues.size(); i += 2)
+        rawData.append({ coordvalues[i], coordvalues[i + 1] });
+
+    // Sort by X
+    std::sort(rawData.begin(), rawData.end(), [](auto a, auto b) { return a.first < b.first; });
+
+    // Apply smoothing
+    QVector<QPair<float, float>> smoothedData;
+    switch (smoothing) {
+    case SmoothingType::MovingAverage:
+        smoothedData = applyMovingAverage(rawData, smoothingParam);
+        break;
+    case SmoothingType::SavitzkyGolay:
+        smoothedData = applySavitzkyGolay(rawData, smoothingParam);
+        break;
+    case SmoothingType::Gaussian:
+        smoothedData = applyGaussian(rawData, smoothingParam);
+        break;
+    case SmoothingType::ExponentialMovingAverage:
+        smoothedData = applyExponentialMovingAverage(rawData);
+        break;
+    case SmoothingType::CubicSpline:
+        smoothedData = applyCubicSplineApproximation(rawData);
+        break;
+    case SmoothingType::LinearInterpolation:
+        smoothedData = applyLinearInterpolation(rawData, smoothingParam);
+        break;
+    case SmoothingType::MinMaxSampling:
+        smoothedData = applyMinMaxSampling(rawData, smoothingParam);
+        break;
+    case SmoothingType::RunningMedian:
+        smoothedData = applyRunningMedian(rawData, smoothingParam);
+        break;
+    case SmoothingType::None:
+    default:
+        smoothedData = rawData;
+        break;
+    }
+    smoothedData = applyNormalization(smoothedData, normalization);
+    // Convert back to QVariantList with categories
     QVariantList payload;
-    for (int i = 0; i < coordvalues.size(); i += 2) {
+    for (int i = 0; i < smoothedData.size(); ++i) {
         QVariantMap entry;
-        entry["x"] = coordvalues[i];
-        entry["y"] = coordvalues[i + 1];
-        if (i / 2 < categoryValues.size()) {
-            const auto& category = categoryValues[i / 2];
-            if (!category.first.isNull() && !category.first.isEmpty()) {
-                entry["category"] = QVariantList{ category.second.name(), category.first };
-            }
-            else {
-                entry["category"] = QVariant();
-            }
+        entry["x"] = smoothedData[i].first;
+        entry["y"] = smoothedData[i].second;
+        if (i < categoryValues.size()) {
+            const auto& cat = categoryValues[i];
+            if (!cat.first.isEmpty())
+                entry["category"] = QVariantList{ cat.second.name(), cat.first };
         }
-        else {
-            entry["category"] = QVariant();
-        }
-        payload << entry;
+        payload.append(entry);
     }
 
-    // Sort payload by x value
-    std::sort(payload.begin(), payload.end(), [](const QVariant& a, const QVariant& b) {
-        return a.toMap().value("x").toFloat() < b.toMap().value("x").toFloat();
-        });
-
+    // Optional: Statistical line like before
     QVariantMap statLine;
-    if (payload.size() < 2) {
-        qDebug() << "prepareData: Not enough data points for statistical line, returning empty QVariant";
-        return QVariant();
+    if (payload.size() >= 2) {
+        int n_half = payload.size() / 2;
+        float sx1 = 0, sy1 = 0, sx2 = 0, sy2 = 0;
+        for (int i = 0; i < n_half; ++i) {
+            sx1 += payload[i].toMap()["x"].toFloat();
+            sy1 += payload[i].toMap()["y"].toFloat();
+        }
+        for (int i = payload.size() - n_half; i < payload.size(); ++i) {
+            sx2 += payload[i].toMap()["x"].toFloat();
+            sy2 += payload[i].toMap()["y"].toFloat();
+        }
+        statLine["start_x"] = sx1 / n_half;
+        statLine["start_y"] = sy1 / n_half;
+        statLine["end_x"] = sx2 / n_half;
+        statLine["end_y"] = sy2 / n_half;
+        statLine["label"] = QString("Stat Line (%1)").arg(n_half);
+        statLine["color"] = "#d62728";
     }
-    int n_half = static_cast<int>(payload.size() / 2);
-    if (n_half < 1) n_half = 1;
-
-    float sumXStart = 0.0f;
-    float sumYStart = 0.0f;
-    for (int i = 0; i < n_half; ++i) {
-        sumXStart += payload[i].toMap().value("x").toFloat();
-        sumYStart += payload[i].toMap().value("y").toFloat();
-    }
-    float meanXStart = sumXStart / static_cast<float>(n_half);
-    float meanYStart = sumYStart / static_cast<float>(n_half);
-
-    float sumXEnd = 0.0f;
-    float sumYEnd = 0.0f;
-    for (int i = payload.size() - n_half; i < payload.size(); ++i) {
-        sumXEnd += payload[i].toMap().value("x").toFloat();
-        sumYEnd += payload[i].toMap().value("y").toFloat();
-    }
-    float meanXEnd = sumXEnd / static_cast<float>(n_half);
-    float meanYEnd = sumYEnd / static_cast<float>(n_half);
-
-    statLine["start_x"] = meanXStart;
-    statLine["start_y"] = meanYStart;
-    statLine["end_x"] = meanXEnd;
-    statLine["end_y"] = meanYEnd;
-    statLine["n_start"] = n_half;
-    statLine["n_end"] = n_half;
-    statLine["label"] = QString("Statistical Line (mean first/last %1)").arg(n_half);
-    statLine["color"] = "#d62728";
 
     QVariantMap root;
     root["data"] = payload;
     root["statLine"] = statLine;
     root["lineColor"] = "#1f77b4";
-    QVariant data = root;
-    return data;
+    return root;
 }
+
 QVariant LinePlotViewPlugin::prepareDataSample()
 {
 

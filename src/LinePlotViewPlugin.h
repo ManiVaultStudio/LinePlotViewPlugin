@@ -18,6 +18,23 @@ using namespace mv::gui;
 using namespace mv::util;
 
 class ChartWidget;
+enum class SmoothingType {
+    None,
+    MovingAverage,
+    SavitzkyGolay,
+    Gaussian,
+    ExponentialMovingAverage,
+    CubicSpline,
+    LinearInterpolation,
+    MinMaxSampling,
+    RunningMedian
+};
+enum class NormalizationType {
+    None,
+    ZScore,         // (x - mean) / stddev
+    MinMax,         // (x - min) / (max - min)
+    DecimalScaling  // x / 10^j, where j makes max(abs(x)) < 1
+};
 
 /**
  * Line view JS plugin class
@@ -66,7 +83,12 @@ private:
     QString getCurrentDataSetID() const;
 
 
-    QVariant prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues);
+    QVariant prepareData(
+        QVector<float>& coordvalues,
+        QVector<QPair<QString, QColor>>& categoryValues,
+        SmoothingType smoothing = SmoothingType::None,
+        int smoothingParam = 5,
+        NormalizationType normalization = NormalizationType::None);
     QVariant prepareDataSample();
 public:
     void fromVariantMap(const QVariantMap& variantMap) override;

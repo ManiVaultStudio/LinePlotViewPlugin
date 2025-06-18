@@ -84,3 +84,28 @@
     stroke: grey;
     stroke-width: 1;
 }
+
+.svg-container {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    overflow: hidden !important;
+}
+
+.svg-content {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+}
+
+/* Remove or override any aspect-ratio or padding-bottom if present */
+.svg-container[style*="padding-bottom"] {
+    padding-bottom: 0 !important;
+}

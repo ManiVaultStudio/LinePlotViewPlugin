@@ -543,39 +543,65 @@ QVariant LinePlotViewPlugin::prepareData(
     // Sort by X
     std::sort(rawData.begin(), rawData.end(), [](auto a, auto b) { return a.first < b.first; });
 
-    // Apply smoothing
+    // Apply normalization BEFORE smoothing
+    QVector<QPair<float, float>> normalizedData = applyNormalization(rawData, normalization);
+
+    // Compute statLine on normalized (but unsmoothed) data
+    QVariantMap statLine;
+    if (normalizedData.size() >= 2) {
+        int n_half = normalizedData.size() / 2;
+        float sx1 = 0, sy1 = 0, sx2 = 0, sy2 = 0;
+        for (int i = 0; i < n_half; ++i) {
+            sx1 += normalizedData[i].first;
+            sy1 += normalizedData[i].second;
+        }
+        for (int i = normalizedData.size() - n_half; i < normalizedData.size(); ++i) {
+            sx2 += normalizedData[i].first;
+            sy2 += normalizedData[i].second;
+        }
+        statLine["start_x"] = sx1 / n_half;
+        statLine["start_y"] = sy1 / n_half;
+        statLine["end_x"] = sx2 / n_half;
+        statLine["end_y"] = sy2 / n_half;
+        statLine["label"] = QString("Stat Line (%1)").arg(n_half);
+        statLine["color"] = "#d62728";
+        statLine["n_start"] = n_half;
+        statLine["n_end"] = n_half;
+    }
+
+    // Apply smoothing to normalized data
     QVector<QPair<float, float>> smoothedData;
     switch (smoothing) {
     case SmoothingType::MovingAverage:
-        smoothedData = applyMovingAverage(rawData, smoothingParam);
+        smoothedData = applyMovingAverage(normalizedData, smoothingParam);
         break;
     case SmoothingType::SavitzkyGolay:
-        smoothedData = applySavitzkyGolay(rawData, smoothingParam);
+        smoothedData = applySavitzkyGolay(normalizedData, smoothingParam);
         break;
     case SmoothingType::Gaussian:
-        smoothedData = applyGaussian(rawData, smoothingParam);
+        smoothedData = applyGaussian(normalizedData, smoothingParam);
         break;
     case SmoothingType::ExponentialMovingAverage:
-        smoothedData = applyExponentialMovingAverage(rawData);
+        smoothedData = applyExponentialMovingAverage(normalizedData);
         break;
     case SmoothingType::CubicSpline:
-        smoothedData = applyCubicSplineApproximation(rawData);
+        smoothedData = applyCubicSplineApproximation(normalizedData);
         break;
     case SmoothingType::LinearInterpolation:
-        smoothedData = applyLinearInterpolation(rawData, smoothingParam);
+        smoothedData = applyLinearInterpolation(normalizedData, smoothingParam);
         break;
     case SmoothingType::MinMaxSampling:
-        smoothedData = applyMinMaxSampling(rawData, smoothingParam);
+        smoothedData = applyMinMaxSampling(normalizedData, smoothingParam);
         break;
     case SmoothingType::RunningMedian:
-        smoothedData = applyRunningMedian(rawData, smoothingParam);
+        smoothedData = applyRunningMedian(normalizedData, smoothingParam);
         break;
     case SmoothingType::None:
     default:
-        smoothedData = rawData;
+        smoothedData = normalizedData;
         break;
     }
-    smoothedData = applyNormalization(smoothedData, normalization);
+
     // Convert back to QVariantList with categories
     QVariantList payload;
     for (int i = 0; i < smoothedData.size(); ++i) {
@@ -588,27 +614,6 @@ QVariant LinePlotViewPlugin::prepareData(
                 entry["category"] = QVariantList{ cat.second.name(), cat.first };
         }
         payload.append(entry);
-    }
-
-    // Optional: Statistical line like before
-    QVariantMap statLine;
-    if (payload.size() >= 2) {
-        int n_half = payload.size() / 2;
-        float sx1 = 0, sy1 = 0, sx2 = 0, sy2 = 0;
-        for (int i = 0; i < n_half; ++i) {
-            sx1 += payload[i].toMap()["x"].toFloat();
-            sy1 += payload[i].toMap()["y"].toFloat();
-        }
-        for (int i = payload.size() - n_half; i < payload.size(); ++i) {
-            sx2 += payload[i].toMap()["x"].toFloat();
-            sy2 += payload[i].toMap()["y"].toFloat();
-        }
-        statLine["start_x"] = sx1 / n_half;
-        statLine["start_y"] = sy1 / n_half;
-        statLine["end_x"] = sx2 / n_half;
-        statLine["end_y"] = sy2 / n_half;
-        statLine["label"] = QString("Stat Line (%1)").arg(n_half);
-        statLine["color"] = "#d62728";
     }
 
     QVariantMap root;

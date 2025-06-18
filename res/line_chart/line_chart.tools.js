@@ -2,13 +2,14 @@
 // when emitting qt_js_setDataInJS from the communication object
 // The connection is established in qwebchannel.tools.js
 function drawChart(d) {
-    if (!d || d.length < 1) {
+    if (!d || (Array.isArray(d) && d.length < 1)) {
         log("LineViewJS: line_chart.tools.js: data empty")
         return
     }
 
     log("LineViewJS: line_chart.tools.js: draw chart")
     log(d);
+
     // Defensive: Ensure LineChart is defined before using it
     if (typeof window.chart === "undefined") {
         if (typeof LineChart !== "undefined" && typeof LineChart.chart === "function") {
@@ -22,18 +23,30 @@ function drawChart(d) {
     // Remove possible old chart 
     d3.select("div#container").select("svg").remove();
 
-    // Convert data to expected format: [{x: Number, y: Number, category: [color, name]}, ...]
-    // x: cell y-coordinate, y: gene expression value, category: [color, name]
-    var parsedData = d.map(function(row) {
-        return {
-            x: +row.x, // cell y-coordinate (numerical)
-            y: +row.y, // gene expression value (numerical)
-            category: row.category // pass through as-is (should be [color, name])
-        };
-    });
+    // Support both old and new payloads
+    let parsedData, statLine;
+    if (d.data && Array.isArray(d.data)) {
+        parsedData = d.data.map(function(row) {
+            return {
+                x: +row.x,
+                y: +row.y,
+                category: row.category
+            };
+        });
+        statLine = d.statLine;
+    } else {
+        parsedData = d.map(function(row) {
+            return {
+                x: +row.x,
+                y: +row.y,
+                category: row.category
+            };
+        });
+        statLine = undefined;
+    }
 
     // Store last data for responsive redraw
-    window._lastChartData = parsedData;
+    window._lastChartData = { data: parsedData, statLine: statLine };
 
     // config chart
     window.chart.config({
@@ -48,7 +61,7 @@ function drawChart(d) {
         .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("viewBox", "0 0 " + window.innerWidth + " " + window.innerHeight)
         .classed("svg-content", true)
-        .datum(parsedData)
+        .datum({ data: parsedData, statLine: statLine })
         .call(window.chart);
 
     // No polygon/area selection for line chart, so skip click handlers

@@ -109,3 +109,15 @@
 .svg-container[style*="padding-bottom"] {
     padding-bottom: 0 !important;
 }
+
+.stat-line {
+    stroke-dasharray: 8,4;
+}
+
+.legend {
+    font-family: sans-serif;
+    font-size: 13px;
+    fill: #222;
+    background: white;
+    pointer-events: none;
+}

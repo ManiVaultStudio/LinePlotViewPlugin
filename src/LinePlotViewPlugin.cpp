@@ -185,11 +185,27 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         entry10["y"] = 7.0;
         entry10["category"] = QVariantList{ "#1f77b4", "Type A" };
         payload << entry10;
-
     }
 
+    // --- Add statistical line info ---
+    QVariantMap statLine;
+    // Example: mean of first 5 points, mean of last 5 points
+    statLine["start_x"] = (1.0 + 2.0 + 3.0 + 4.0 + 5.0) / 5.0;
+    statLine["start_y"] = (5.2 + 7.8 + 6.1 + 8.3 + 4.7) / 5.0; // mean of first 5 y
+    statLine["end_x"] = (6.0 + 7.0 + 8.0 + 9.0 + 10.0) / 5.0;
+    statLine["end_y"] = (9.0 + 3.5 + 6.8 + 5.5 + 7.0) / 5.0; // mean of last 5 y
+    statLine["n_start"] = 5;
+    statLine["n_end"] = 5;
+    statLine["label"] = "Statistical Line (mean first/last 5)";
+    // Optionally, color for the stat line
+    statLine["color"] = "#d62728";
+
+    QVariantMap root;
+    root["data"] = payload;
+    root["statLine"] = statLine;
+
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(payload);
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root);
 }
 
 void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)

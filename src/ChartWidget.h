@@ -3,8 +3,10 @@
 #include "widgets/WebWidget.h"
 
 #include <QVariantList>
+#include <QVariantMap>
 
 Q_DECLARE_METATYPE(QVariantList)
+Q_DECLARE_METATYPE(QVariantMap)
 
 class LinePlotViewPlugin;
 
@@ -22,7 +24,7 @@ signals:
     // Signals from Qt to JS side
     // This specific signal is used to transfer data from ManiVault to the D3 plot
     // But other communication like messaging selection IDs can be handled the same
-    void qt_js_setDataAndPlotInJS(const QVariantList& data);
+    void qt_js_setDataAndPlotInJS(const QVariantMap& data);
 
     // Signals Qt internal
     // Used to inform the plugin about new selection: the plugin class then updates ManiVault's core

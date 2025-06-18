@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="">
+        <file>line_chart/line_chart.html</file>
+        <file>line_chart/line_chart.tools.js</file>
+    </qresource>
+    <qresource prefix="">
+        <file>js_libs/d3.v7.min.js</file>
+        <file>js_libs/line-chart.min.js</file>
+        <file>js_libs/line-chart.min.css</file>
+        <file>js_libs/qwebchannel.tools.js</file>
+   </qresource>
+</RCC>

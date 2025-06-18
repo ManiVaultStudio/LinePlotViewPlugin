@@ -32,31 +32,24 @@ void LinePlotViewPlugin::init()
 {
     getWidget().setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
-    // Create layout
     auto layout = new QVBoxLayout();
     layout->setContentsMargins(0, 0, 0, 0);
 
-    // Create chart widget and set html contents of webpage 
     _chartWidget = new ChartWidget(this);
     _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
 
-    // Add widget to layout
     layout->addWidget(_chartWidget);
 
-    // Apply the layout
     getWidget().setLayout(layout);
 
-    // Instantiate new drop widget: See LineViewPlugin for details
     _dropWidget = new DropWidget(_chartWidget);
     _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
 
     _dropWidget->initialize([this](const QMimeData* mimeData) -> DropWidget::DropRegions {
 
-        // A drop widget can contain zero or more drop regions
         DropWidget::DropRegions dropRegions;
 
         const auto datasetsMimeData = dynamic_cast<const DatasetsMimeData*>(mimeData);
-
 
         if (datasetsMimeData == nullptr)
             return dropRegions;
@@ -92,26 +85,20 @@ void LinePlotViewPlugin::init()
         return dropRegions;
         });
 
-    // update data when data set changed
     connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
 
-    // Update the selection (coming from PCP) in core
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
-    // Create data so that we do not need to load any in this line chart
     createData();
-
 }
 
 void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
 {
-    // Exit if there is nothing to load
     if (datasets.isEmpty())
         return;
 
     qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
 
-    // Load the first dataset, changes to _currentDataSet are connected with convertDataAndUpdateChart
     _currentDataSet = datasets.first();
     events().notifyDatasetDataChanged(_currentDataSet);
 }
@@ -123,7 +110,6 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
 
-    // Example data for the line chart: x = cell y-coordinate, y = gene expression value, category = [color, name]
     QVariantList payload;
     {
         QVariantMap entry1;
@@ -187,24 +173,21 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         payload << entry10;
     }
 
-    // --- Add statistical line info ---
     QVariantMap statLine;
-    // Example: mean of first 5 points, mean of last 5 points
     statLine["start_x"] = (1.0 + 2.0 + 3.0 + 4.0 + 5.0) / 5.0;
-    statLine["start_y"] = (5.2 + 7.8 + 6.1 + 8.3 + 4.7) / 5.0; // mean of first 5 y
+    statLine["start_y"] = (5.2 + 7.8 + 6.1 + 8.3 + 4.7) / 5.0;
     statLine["end_x"] = (6.0 + 7.0 + 8.0 + 9.0 + 10.0) / 5.0;
-    statLine["end_y"] = (9.0 + 3.5 + 6.8 + 5.5 + 7.0) / 5.0; // mean of last 5 y
+    statLine["end_y"] = (9.0 + 3.5 + 6.8 + 5.5 + 7.0) / 5.0;
     statLine["n_start"] = 5;
     statLine["n_end"] = 5;
     statLine["label"] = "Statistical Line (mean first/last 5)";
-    // Optionally, color for the stat line
     statLine["color"] = "#d62728";
 
     QVariantMap root;
     root["data"] = payload;
     root["statLine"] = statLine;
-    // --- Add chart title ---
     root["title"] = "Example Line Chart Title";
+    root["lineColor"] = "#1f77b4";
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root);
@@ -212,18 +195,15 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
 void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
 {
-    // ask core for the selection set for the current data set
     auto selectionSet = _currentDataSet->getSelection<Points>();
     auto& selectionIndices = selectionSet->indices;
 
-    // clear the selection and add the new points
     selectionIndices.clear();
     selectionIndices.reserve(_currentDataSet->getNumPoints());
     for (const auto id : selectedIDs) {
         selectionIndices.push_back(id);
     }
 
-    // notify core about the selection change
     if (_currentDataSet->isDerivedData())
         events().notifyDatasetDataSelectionChanged(_currentDataSet->getSourceDataset<DatasetImpl>());
     else
@@ -240,8 +220,6 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
 
 void LinePlotViewPlugin::createData()
 {
-    // Here, we create a random data set, so that we do not need 
-    // to use other plugins for loading when trying out this line chart
     auto points = mv::data().createDataset<Points>("Points", "LinePlotViewData");
 
     int numPoints = 2;
@@ -253,7 +231,6 @@ void LinePlotViewPlugin::createData()
 
     qDebug() << "LinePlotViewPlugin::createData: Create some line data. 2 points, each with 5 dimensions";
 
-    // Create random line data
     {
         std::default_random_engine generator;
         std::uniform_real_distribution<float> distribution(0.0, 10.0);
@@ -265,13 +242,11 @@ void LinePlotViewPlugin::createData()
         }
     }
 
-    // Passing line data with 1000 points and 2 dimensions
     points->setData(lineData.data(), numPoints, numDimensions);
     points->setDimensionNames(dimNames);
 
     points->setProperty("PointNames", pointNames);
 
-    // Notify the core system of the new data
     events().notifyDatasetDataChanged(points);
     events().notifyDatasetDataDimensionsChanged(points);
 }
@@ -304,7 +279,6 @@ ViewPlugin* LinePlotViewPluginFactory::produce()
 
 mv::DataTypes LinePlotViewPluginFactory::supportedDataTypes() const
 {
-    // This line analysis plugin is compatible with points datasets
     DataTypes supportedTypes;
     supportedTypes.append(PointType);
     return supportedTypes;

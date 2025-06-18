@@ -746,7 +746,7 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
 
     const auto numberOfDatasets = datasets.count();
 
-    if (numberOfDatasets >= 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
+    /*if (numberOfDatasets >= 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
         auto pluginTriggerAction = new PluginTriggerAction(const_cast<LinePlotViewPluginFactory*>(this), this, "Line JS", "View JavaScript visualization", icon(), [this, getPluginInstance, datasets](PluginTriggerAction& pluginTriggerAction) -> void {
             for (auto dataset : datasets)
                 getPluginInstance()->loadData(Datasets({ dataset }));
@@ -754,7 +754,7 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
         });
 
         pluginTriggerActions << pluginTriggerAction;
-    }
+    }*/
 
     return pluginTriggerActions;
 }

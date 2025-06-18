@@ -62,14 +62,22 @@ public:
         const VariantAction& getLineDataVariantAction() const { return _lineDataVariant; }
         VariantAction& getLineDataVariantAction() { return _lineDataVariant; }
 
-        const DimensionPickerAction& getDataDimensionSelectionAction() const { return _dataDimensionSelectionAction; }
-        DimensionPickerAction& getDataDimensionSelectionAction() { return _dataDimensionSelectionAction; }
+        const DimensionPickerAction& getDataDimensionXSelectionAction() const { return _dataDimensionXSelectionAction; }
+        DimensionPickerAction& getDataDimensionXSelectionAction() { return _dataDimensionXSelectionAction; }
+
+        const ToggleAction& getDataFromVariantAction() const { return _dataFromVariantAction; }
+        ToggleAction& getDataFromVariantAction() { return _dataFromVariantAction; }
+
+        const DimensionPickerAction& getDataDimensionYSelectionAction() const { return _dataDimensionYSelectionAction; }
+        DimensionPickerAction& getDataDimensionYSelectionAction() { return _dataDimensionYSelectionAction; }
 
     protected:
         SettingsAction& _settingsOptions;
         DatasetPickerAction _pointDatasetAction;
-        DimensionPickerAction _dataDimensionSelectionAction;
+        DimensionPickerAction _dataDimensionXSelectionAction;
+        DimensionPickerAction _dataDimensionYSelectionAction;
         VariantAction _lineDataVariant;
+        ToggleAction    _dataFromVariantAction;
     };
 
 public:

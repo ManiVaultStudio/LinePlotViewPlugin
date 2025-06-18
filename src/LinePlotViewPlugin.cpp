@@ -23,8 +23,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     ViewPlugin(factory),
     _chartWidget(nullptr),
     _dropWidget(nullptr),
-    _currentDataSet(nullptr),
-    _settingsAction(*this)
+    _settingsAction(*this),
+    _currentDataSet(nullptr)
 {
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -39,7 +39,8 @@ void LinePlotViewPlugin::init()
     _chartWidget = new ChartWidget(this);
     _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
 
-    layout->addWidget(_chartWidget);
+    layout->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
+    layout->addWidget(_chartWidget,1);
 
     getWidget().setLayout(layout);
 
@@ -88,9 +89,48 @@ void LinePlotViewPlugin::init()
 
     connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
 
+    const auto pointDatasetChanged = [this]() -> void {
+        auto dataset = _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().getCurrentDataset();
+        if (dataset.isValid()) {
+
+            _currentDataSet = dataset;
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
+            if (_currentDataSet->getNumDimensions() >= 2)
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(0);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(1);
+            }
+            else if (_currentDataSet->getNumDimensions() == 1)
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(0);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            }
+            else
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            }
+
+
+            
+        }
+        else
+        {
+            _currentDataSet = Dataset<Points>();
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+        }
+        events().notifyDatasetDataChanged(_currentDataSet);
+        };
+    connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, pointDatasetChanged);
+
+
+
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
-    createData();
 }
 
 void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
@@ -99,47 +139,61 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
         return;
 
     qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
-
-    _currentDataSet = datasets.first();
-    events().notifyDatasetDataChanged(_currentDataSet);
+    if (!datasets.first().isValid()) {
+        _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentIndex(-1);
+        qDebug() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
+        return;
+    }
+    else
+    {
+        _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentDataset(datasets.first());
+    }
+    
 }
 
 void LinePlotViewPlugin::convertDataAndUpdateChart()
 {
+    QVariant root;
     if (!_currentDataSet.isValid())
-        return;
-
-    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
-    QVector<float> coordvalues;
-    //QVector<QPair<QString, QColor>> categoryValues;
-
-    const auto numPoints = _currentDataSet->getNumPoints();
-    const auto numDimensions = _currentDataSet->getNumDimensions();
-
-    if (numPoints == 0 || numDimensions < 2) {
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid data to convert";
-        return;
+    {
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
     }
-    coordvalues.reserve(numPoints * 2);
-    //categoryValues.reserve(numPoints);
-    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
-    //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
-    for (unsigned int i = 0; i < numPoints; ++i) {
-        float xValue = _currentDataSet->getValueAt(i * numDimensions + 0);
-        float yValue = _currentDataSet->getValueAt(i * numDimensions + 1);
-        coordvalues.push_back(xValue);
-        coordvalues.push_back(yValue);
-       // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Point" << i << "X:" << xValue << "Y:" << yValue;
+    else
+    {
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
+        QVector<float> coordvalues;
+        //QVector<QPair<QString, QColor>> categoryValues;
 
+        const auto numPoints = _currentDataSet->getNumPoints();
+        const auto numDimensions = _currentDataSet->getNumDimensions();
+
+        if (numPoints == 0 || numDimensions < 2) {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid data to convert";
+            return;
+        }
+        coordvalues.reserve(numPoints * 2);
+        //categoryValues.reserve(numPoints);
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
+        //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
+        for (unsigned int i = 0; i < numPoints; ++i) {
+            float xValue = _currentDataSet->getValueAt(i * numDimensions + 0);
+            float yValue = _currentDataSet->getValueAt(i * numDimensions + 1);
+            coordvalues.push_back(xValue);
+            coordvalues.push_back(yValue);
+            // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Point" << i << "X:" << xValue << "Y:" << yValue;
+
+        }
+        //set the category values as null for now, we can add categories later
+        QVector<QPair<QString, QColor>> categoryValues;
+
+        //QVariant root=prepareDataSample();
+        root = prepareData(coordvalues, categoryValues);
+
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
+  
     }
-    //set the category values as null for now, we can add categories later
-    QVector<QPair<QString, QColor>> categoryValues;
-
-    //QVariant root=prepareDataSample();
-    QVariant root= prepareData(coordvalues, categoryValues);
-
-    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+
 }
 
 void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
@@ -165,39 +219,6 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
         return _currentDataSet->getId();
     else
         return QString{};
-}
-
-void LinePlotViewPlugin::createData()
-{
-    auto points = mv::data().createDataset<Points>("Points", "LinePlotViewData");
-
-    int numPoints = 2;
-    int numDimensions = 5;
-
-    const std::vector<QString> dimNames {"Dim 1", "Dim 2", "Dim 3", "Dim 4", "Dim 5", };
-    const QVariant pointNames = QStringList{ "Data point 1", "Data point 2" };
-    std::vector<float> lineData;
-
-    qDebug() << "LinePlotViewPlugin::createData: Create some line data. 2 points, each with 5 dimensions";
-
-    {
-        std::default_random_engine generator;
-        std::uniform_real_distribution<float> distribution(0.0, 10.0);
-
-        for (int i = 0; i < numPoints * numDimensions; i++)
-        {
-            lineData.push_back(distribution(generator));
-            qDebug() << "lineData[" << i << "]: " << lineData[i];
-        }
-    }
-
-    points->setData(lineData.data(), numPoints, numDimensions);
-    points->setDimensionNames(dimNames);
-
-    points->setProperty("PointNames", pointNames);
-
-    events().notifyDatasetDataChanged(points);
-    events().notifyDatasetDataDimensionsChanged(points);
 }
 
 QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues)

@@ -65,8 +65,6 @@ private:
 
     QString getCurrentDataSetID() const;
 
-    /** We create and publish some data in order to provide an self-contained line project */
-    void createData();
 
     QVariant prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues);
     QVariant prepareDataSample();

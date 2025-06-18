@@ -123,33 +123,69 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
 
-    // Example data for the line chart: x = cell y-coordinate, y = gene expression value
+    // Example data for the line chart: x = cell y-coordinate, y = gene expression value, category = [color, name]
     QVariantList payload;
     {
         QVariantMap entry1;
-        entry1["x"] = 1.0; // cell y-coordinate
-        entry1["y"] = 5.2; // gene expression value
+        entry1["x"] = 1.0;
+        entry1["y"] = 5.2;
+        entry1["category"] = QVariantList{ "#1f77b4", "Type A" };
         payload << entry1;
 
         QVariantMap entry2;
         entry2["x"] = 2.0;
         entry2["y"] = 7.8;
+        entry2["category"] = QVariantList{ "#1f77b4", "Type A" };
         payload << entry2;
 
         QVariantMap entry3;
         entry3["x"] = 3.0;
         entry3["y"] = 6.1;
+        entry3["category"] = QVariantList{ "#ff7f0e", "Type B" };
         payload << entry3;
 
         QVariantMap entry4;
         entry4["x"] = 4.0;
         entry4["y"] = 8.3;
+        entry4["category"] = QVariantList{ "#ff7f0e", "Type B" };
         payload << entry4;
 
         QVariantMap entry5;
         entry5["x"] = 5.0;
         entry5["y"] = 4.7;
+        entry5["category"] = QVariantList{ "#2ca02c", "Type C" };
         payload << entry5;
+
+        QVariantMap entry6;
+        entry6["x"] = 6.0;
+        entry6["y"] = 9.0;
+        entry6["category"] = QVariantList{ "#2ca02c", "Type C" };
+        payload << entry6;
+
+        QVariantMap entry7;
+        entry7["x"] = 7.0;
+        entry7["y"] = 3.5;
+        entry7["category"] = QVariantList{ "#ff7f0e", "Type B" };
+        payload << entry7;
+
+        QVariantMap entry8;
+        entry8["x"] = 8.0;
+        entry8["y"] = 6.8;
+        entry8["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry8;
+
+        QVariantMap entry9;
+        entry9["x"] = 9.0;
+        entry9["y"] = 5.5;
+        entry9["category"] = QVariantList{ "#2ca02c", "Type C" };
+        payload << entry9;
+
+        QVariantMap entry10;
+        entry10["x"] = 10.0;
+        entry10["y"] = 7.0;
+        entry10["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry10;
+
     }
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";

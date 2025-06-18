@@ -22,12 +22,13 @@ function drawChart(d) {
     // Remove possible old chart 
     d3.select("div#container").select("svg").remove();
 
-    // Convert data to expected format: [{x: Number, y: Number}, ...]
-    // x: cell y-coordinate, y: gene expression value
+    // Convert data to expected format: [{x: Number, y: Number, category: [color, name]}, ...]
+    // x: cell y-coordinate, y: gene expression value, category: [color, name]
     var parsedData = d.map(function(row) {
         return {
             x: +row.x, // cell y-coordinate (numerical)
-            y: +row.y  // gene expression value (numerical)
+            y: +row.y, // gene expression value (numerical)
+            category: row.category // pass through as-is (should be [color, name])
         };
     });
 

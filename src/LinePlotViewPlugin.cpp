@@ -302,6 +302,20 @@ void LinePlotViewPlugin::init()
                     clusterDatasets.push_back(child);
                 }
             }
+            auto parent = _currentDataSet->getParent();
+            if (parent.isValid())
+            {
+                auto others = parent->getChildren();
+                for (const auto& other : others)
+                {
+                    if (other->getDataType() == ClusterType) {
+                        clusterDatasets.push_back(other);
+                    }
+                }
+            }
+            
+
+
             _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
             if (clusterDatasets.isEmpty())
             {

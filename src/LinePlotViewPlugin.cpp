@@ -23,7 +23,8 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     ViewPlugin(factory),
     _chartWidget(nullptr),
     _dropWidget(nullptr),
-    _currentDataSet(nullptr)
+    _currentDataSet(nullptr),
+    _settingsAction(*this)
 {
     getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
 }
@@ -134,8 +135,8 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
     //set the category values as null for now, we can add categories later
     QVector<QPair<QString, QColor>> categoryValues;
 
-    QVariant root=prepareDataSample();
-    //QVariant root= prepareData(coordvalues, categoryValues);
+    //QVariant root=prepareDataSample();
+    QVariant root= prepareData(coordvalues, categoryValues);
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
@@ -422,4 +423,19 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
     }
 
     return pluginTriggerActions;
+}
+
+void LinePlotViewPlugin::fromVariantMap(const QVariantMap& variantMap)
+{
+    ViewPlugin::fromVariantMap(variantMap);
+    mv::util::variantMapMustContain(variantMap, "LinePlotViewPlugin:Settings");
+    _settingsAction.fromVariantMap(variantMap["LinePlotViewPlugin:Settings"].toMap());
+}
+
+QVariantMap LinePlotViewPlugin::toVariantMap() const
+{
+    QVariantMap variantMap = ViewPlugin::toVariantMap();
+
+    _settingsAction.insertIntoVariantMap(variantMap);
+    return variantMap;
 }

@@ -5,7 +5,7 @@
 #include <Dataset.h>
 #include <PointData/PointData.h>
 #include <widgets/DropWidget.h>
-
+#include "SettingsAction.h"
 #include <QWidget>
 
 /** All plugin related classes are in the ManiVault plugin namespace */
@@ -70,11 +70,15 @@ private:
 
     QVariant prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues);
     QVariant prepareDataSample();
+public:
+    void fromVariantMap(const QVariantMap& variantMap) override;
+    QVariantMap toVariantMap() const override;
 
 private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page
     DropWidget*             _dropWidget;        // Widget for drag and drop behavior
     mv::Dataset<Points>     _currentDataSet;    // Reference to currently shown data set
+    SettingsAction          _settingsAction;
 };
 
 /**

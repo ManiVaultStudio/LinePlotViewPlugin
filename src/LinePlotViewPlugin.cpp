@@ -129,6 +129,9 @@ void LinePlotViewPlugin::init()
 
 
 
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
 }
@@ -166,21 +169,44 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
         const auto numPoints = _currentDataSet->getNumPoints();
         const auto numDimensions = _currentDataSet->getNumDimensions();
+        const auto dimensionNames = _currentDataSet->getDimensionNames();
 
         if (numPoints == 0 || numDimensions < 2) {
             qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid data to convert";
             return;
         }
+        auto selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
+        auto selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
+
+        int dimensionXIndex = -1;
+        int dimensionYIndex = -1;
+        if (selectedDimensionX.isEmpty() || selectedDimensionY.isEmpty()) {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No dimensions selected for X or Y axis";
+            return;
+        }
+        for (int i = 0; i < numDimensions; ++i) {
+            if (dimensionNames[i] == selectedDimensionX) {
+                dimensionXIndex = i;
+            }
+            if (dimensionNames[i] == selectedDimensionY) {
+                dimensionYIndex = i;
+            }
+        }
+        if (dimensionXIndex == -1 || dimensionYIndex == -1) {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
+            return;
+        }
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions - X:" << selectedDimensionX << "(Index:" << dimensionXIndex << "), Y:" << selectedDimensionY << "(Index:" << dimensionYIndex << ")";
+
         coordvalues.reserve(numPoints * 2);
         //categoryValues.reserve(numPoints);
         qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
         //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
         for (unsigned int i = 0; i < numPoints; ++i) {
-            float xValue = _currentDataSet->getValueAt(i * numDimensions + 0);
-            float yValue = _currentDataSet->getValueAt(i * numDimensions + 1);
+            float xValue = _currentDataSet->getValueAt(i * numDimensions + dimensionXIndex);
+            float yValue = _currentDataSet->getValueAt(i * numDimensions + dimensionYIndex);
             coordvalues.push_back(xValue);
             coordvalues.push_back(yValue);
-            // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Point" << i << "X:" << xValue << "Y:" << yValue;
 
         }
         //set the category values as null for now, we can add categories later

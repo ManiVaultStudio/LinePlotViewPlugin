@@ -68,7 +68,8 @@ private:
     /** We create and publish some data in order to provide an self-contained line project */
     void createData();
 
-    QVariant prepareData();
+    QVariant prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues);
+    QVariant prepareDataSample();
 
 private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page

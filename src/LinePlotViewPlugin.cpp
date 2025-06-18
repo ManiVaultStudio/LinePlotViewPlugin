@@ -109,8 +109,33 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         return;
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
+    QVector<float> coordvalues;
+    //QVector<QPair<QString, QColor>> categoryValues;
 
-    QVariant root= prepareData();
+    const auto numPoints = _currentDataSet->getNumPoints();
+    const auto numDimensions = _currentDataSet->getNumDimensions();
+
+    if (numPoints == 0 || numDimensions < 2) {
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid data to convert";
+        return;
+    }
+    coordvalues.reserve(numPoints * 2);
+    //categoryValues.reserve(numPoints);
+    qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
+    //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
+    for (unsigned int i = 0; i < numPoints; ++i) {
+        float xValue = _currentDataSet->getValueAt(i * numDimensions + 0);
+        float yValue = _currentDataSet->getValueAt(i * numDimensions + 1);
+        coordvalues.push_back(xValue);
+        coordvalues.push_back(yValue);
+       // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Point" << i << "X:" << xValue << "Y:" << yValue;
+
+    }
+    //set the category values as null for now, we can add categories later
+    QVector<QPair<QString, QColor>> categoryValues;
+
+    QVariant root=prepareDataSample();
+    //QVariant root= prepareData(coordvalues, categoryValues);
 
     qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
@@ -174,7 +199,91 @@ void LinePlotViewPlugin::createData()
     events().notifyDatasetDataDimensionsChanged(points);
 }
 
-QVariant LinePlotViewPlugin::prepareData()
+QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues)
+{
+    if (coordvalues.isEmpty()) {
+        qDebug() << "prepareData: No data provided, returning empty QVariant";
+        return QVariant();
+    }
+    qDebug() << "prepareData: Preparing data for line chart";
+
+    if (coordvalues.size() % 2 != 0) {
+        qDebug() << "prepareData: coordvalues size is not even, returning empty QVariant";
+        return QVariant();
+    }
+    if (coordvalues.size() < 2) {
+        qDebug() << "prepareData: coordvalues size is less than 2, returning empty QVariant";
+        return QVariant();
+    }
+
+    QVariantList payload;
+    for (int i = 0; i < coordvalues.size(); i += 2) {
+        QVariantMap entry;
+        entry["x"] = coordvalues[i];
+        entry["y"] = coordvalues[i + 1];
+        if (i / 2 < categoryValues.size()) {
+            const auto& category = categoryValues[i / 2];
+            if (!category.first.isNull() && !category.first.isEmpty()) {
+                entry["category"] = QVariantList{ category.second.name(), category.first };
+            }
+            else {
+                entry["category"] = QVariant();
+            }
+        }
+        else {
+            entry["category"] = QVariant();
+        }
+        payload << entry;
+    }
+
+    // Sort payload by x value
+    std::sort(payload.begin(), payload.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap().value("x").toFloat() < b.toMap().value("x").toFloat();
+        });
+
+    QVariantMap statLine;
+    if (payload.size() < 2) {
+        qDebug() << "prepareData: Not enough data points for statistical line, returning empty QVariant";
+        return QVariant();
+    }
+    int n_half = static_cast<int>(payload.size() / 2);
+    if (n_half < 1) n_half = 1;
+
+    float sumXStart = 0.0f;
+    float sumYStart = 0.0f;
+    for (int i = 0; i < n_half; ++i) {
+        sumXStart += payload[i].toMap().value("x").toFloat();
+        sumYStart += payload[i].toMap().value("y").toFloat();
+    }
+    float meanXStart = sumXStart / static_cast<float>(n_half);
+    float meanYStart = sumYStart / static_cast<float>(n_half);
+
+    float sumXEnd = 0.0f;
+    float sumYEnd = 0.0f;
+    for (int i = payload.size() - n_half; i < payload.size(); ++i) {
+        sumXEnd += payload[i].toMap().value("x").toFloat();
+        sumYEnd += payload[i].toMap().value("y").toFloat();
+    }
+    float meanXEnd = sumXEnd / static_cast<float>(n_half);
+    float meanYEnd = sumYEnd / static_cast<float>(n_half);
+
+    statLine["start_x"] = meanXStart;
+    statLine["start_y"] = meanYStart;
+    statLine["end_x"] = meanXEnd;
+    statLine["end_y"] = meanYEnd;
+    statLine["n_start"] = n_half;
+    statLine["n_end"] = n_half;
+    statLine["label"] = QString("Statistical Line (mean first/last %1)").arg(n_half);
+    statLine["color"] = "#d62728";
+
+    QVariantMap root;
+    root["data"] = payload;
+    root["statLine"] = statLine;
+    root["lineColor"] = "#1f77b4";
+    QVariant data = root;
+    return data;
+}
+QVariant LinePlotViewPlugin::prepareDataSample()
 {
 
     QVariantList payload;
@@ -259,7 +368,6 @@ QVariant LinePlotViewPlugin::prepareData()
     QVariant data = root;
     return data;
 }
-
 
 // =============================================================================
 // Plugin Factory 

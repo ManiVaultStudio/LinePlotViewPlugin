@@ -34,6 +34,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingTypeAction().setSerializationName("LayerSurfer:SmoothingType");
     _chartOptionsHolder.getNormalizationTypeAction().setSerializationName("LayerSurfer:NormalizationType");
     _chartOptionsHolder.getSmoothingWindowAction().setSerializationName("LayerSurfer:SmoothingWindow");
+ 
 
     
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
@@ -45,6 +46,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingTypeAction().setToolTip("Smoothing Type");
     _chartOptionsHolder.getNormalizationTypeAction().setToolTip("Normalization Type");
     _chartOptionsHolder.getSmoothingWindowAction().setToolTip("Smoothing Window");
+   
 
 
     _datasetOptionsHolder.getPointDatasetAction().setFilterFunction([this](mv::Dataset<DatasetImpl> dataset) -> bool {
@@ -60,9 +62,12 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getNormalizationTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSmoothingWindowAction().setDefaultWidgetFlags(IntegralAction::SpinBox |IntegralAction::Slider);
 
+
     _chartOptionsHolder.getSmoothingWindowAction().setMinimum(2);
     _chartOptionsHolder.getSmoothingWindowAction().setMaximum(1000);
     _chartOptionsHolder.getSmoothingWindowAction().setValue(5);
+
+
     _chartOptionsHolder.getSmoothingTypeAction().initialize(QStringList{
         "None",
         "Moving Average",
@@ -133,6 +138,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _chartOptionsHolder.getSmoothingTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getNormalizationTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingWindowAction().fromParentVariantMap(variantMap);
+
 
 }
 

@@ -264,21 +264,30 @@ void LinePlotViewPlugin::init()
     auto layout = new QVBoxLayout();
     layout->setContentsMargins(0, 0, 0, 0);
 
-    _chartWidget = new ChartWidget(this);
-    _lineChartWidget = new LineChartWidget(&getWidget());
-    _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
+    _openGlEnabled = true;
+
     auto settings = new QHBoxLayout();
     settings->setContentsMargins(0, 0, 0, 0);
     settings->setSpacing(0);
     settings->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
     settings->addWidget(_settingsAction.getChartOptionsHolder().createCollapsedWidget(&getWidget()));
     layout->addLayout(settings);
-    //layout->addWidget(_chartWidget,1);
-    layout->addWidget(_lineChartWidget, 1);
+    if (_openGlEnabled)
+    {
+        _lineChartWidget = new LineChartWidget(&getWidget());
+        layout->addWidget(_lineChartWidget, 1);
+        _dropWidget = new DropWidget(_lineChartWidget);
+    }
+    else
+    {
+        _chartWidget = new ChartWidget(this);
+        _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
+        layout->addWidget(_chartWidget, 1);
+        _dropWidget = new DropWidget(_chartWidget);
+    }
+    
     getWidget().setLayout(layout);
 
-    //_dropWidget = new DropWidget(_chartWidget);
-    _dropWidget = new DropWidget(_lineChartWidget);
     _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
 
     _dropWidget->initialize([this](const QMimeData* mimeData) -> DropWidget::DropRegions {
@@ -320,6 +329,14 @@ void LinePlotViewPlugin::init()
 
         return dropRegions;
         });
+
+     _dimensionXRangeDebounceTimer.setSingleShot(true);
+     _dimensionYRangeDebounceTimer.setSingleShot(true);
+     _smoothingTypeDebounceTimer.setSingleShot(true);
+     _normalizationTypeDebounceTimer.setSingleShot(true);
+     _smoothingWindowDebounceTimer.setSingleShot(true);
+     _clusterDatasetDebounceTimer.setSingleShot(true);
+
 
     const auto dataChanged = [this]() -> void {
         _isUpdating = true;
@@ -379,7 +396,7 @@ void LinePlotViewPlugin::init()
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()/2);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
             int lowlimit = 2;
-            int highlimit = std::min(static_cast<int>(_currentDataSet->getNumPoints() / 2), static_cast<int>(_currentDataSet->getNumPoints() * 0.2f));
+            int highlimit = std::min(static_cast<int>(_currentDataSet->getNumPoints() / 2), static_cast<int>(_currentDataSet->getNumPoints() * 0.1f));
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
                 std::max(lowlimit, highlimit)
             );
@@ -412,16 +429,83 @@ void LinePlotViewPlugin::init()
 
 
 
-    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
-    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
-    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
-    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::updateChartTrigger);
+    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(),
+        &DatasetPickerAction::currentIndexChanged,
+        this,
+        [this]() {
+            _clusterDatasetDebounceTimer.start(500);
+        });
 
-     connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::updateChartTrigger);
-    connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(), &IntegralAction::valueChanged, this, &LinePlotViewPlugin::updateChartTrigger);
-    
-    
+    connect(&_clusterDatasetDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
 
+
+
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(),
+        &DimensionPickerAction::currentDimensionIndexChanged,
+        this,
+        [this]() {
+            _dimensionXRangeDebounceTimer.start(800);
+        });
+
+    connect(&_dimensionXRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+
+
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(),
+        &DimensionPickerAction::currentDimensionIndexChanged,
+        this,
+        [this]() {
+            _dimensionYRangeDebounceTimer.start(800);
+        });
+
+    connect(&_dimensionYRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+
+
+    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(),
+        &OptionAction::currentIndexChanged,
+        this,
+        [this]() {
+            _normalizationTypeDebounceTimer.start(800);
+        });
+
+    connect(&_normalizationTypeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+    connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(),
+        &OptionAction::currentIndexChanged,
+        this,
+        [this]() {
+            _smoothingTypeDebounceTimer.start(800);
+        });
+
+    connect(&_smoothingTypeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+     connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(),
+         &IntegralAction::valueChanged,
+         this,
+         [this]() {
+             _smoothingWindowDebounceTimer.start(800);
+         });
+
+     connect(&_smoothingWindowDebounceTimer, &QTimer::timeout, this, [this]() {
+         updateChartTrigger();
+         });
+
+
+    
     //connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
 }
@@ -448,10 +532,12 @@ void LinePlotViewPlugin::updateChartTrigger()
     {
         //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Triggering chart update";
         _isUpdating = true;
-        QtConcurrent::run([this]() {
+        dataConvertChartUpdate();
+        _isUpdating = false;
+       /* QtConcurrent::run([this]() {
             dataConvertChartUpdate();
             _isUpdating = false;
-            });
+            });*/
     }
 }
 
@@ -532,7 +618,13 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
         }
         //set the category values as null for now, we can add categories later
-        QVector<QPair<QString, QColor>> categoryValues(numPoints, { QString(), QColor() });
+        //QVector<QPair<QString, QColor>> categoryValues(numPoints, { QString(), QColor() });
+        QVector<QPair<QString, QColor>> categoryValues;
+        categoryValues.reserve(numPoints);
+        for (unsigned int i = 0; i < numPoints; ++i) {
+            categoryValues.push_back({ QString(), QColor() });
+        }
+        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepared coordinate values and category values";
         Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
         if (clusterDataset.isValid()) {
             auto clusters = clusterDataset->getClusters();
@@ -604,8 +696,16 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
         root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
     }
-    //emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
-   _lineChartWidget->setData(root.toMap());
+
+    if (_openGlEnabled)
+    {
+        _lineChartWidget->setData(root.toMap());
+    }
+    else
+    {
+        emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+    }
+   
 }
 
 /*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
@@ -653,6 +753,7 @@ QVariant LinePlotViewPlugin::prepareData(
     for (int i = 0; i < coordvalues.size(); i += 2)
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
 
+    
     // Sort by X, keeping categoryValues in sync
     QVector<int> indices(rawData.size());
     std::iota(indices.begin(), indices.end(), 0);
@@ -687,24 +788,33 @@ QVariant LinePlotViewPlugin::prepareData(
     // Apply normalization BEFORE smoothing
     QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
 
-    // Compute statLine on normalized (but unsmoothed) data
     QVariantMap statLine;
     if (normalizedData.size() >= 2) {
-        int n_half = normalizedData.size() / 2;
-        float sx1 = 0, sy1 = 0, sx2 = 0, sy2 = 0;
+        int n = normalizedData.size();
+        int n_half = n / 2;
+        if (n_half == 0) n_half = 1; // Avoid division by zero
+
+        // Compute means for x and y values
+        float sumStartX = 0, sumStartY = 0;
+        float sumEndX = 0, sumEndY = 0;
         for (int i = 0; i < n_half; ++i) {
-            sx1 += normalizedData[i].first;
-            sy1 += normalizedData[i].second;
+            sumStartX += normalizedData[i].first;
+            sumStartY += normalizedData[i].second;
         }
-        for (int i = normalizedData.size() - n_half; i < normalizedData.size(); ++i) {
-            sx2 += normalizedData[i].first;
-            sy2 += normalizedData[i].second;
+        for (int i = n - n_half; i < n; ++i) {
+            sumEndX += normalizedData[i].first;
+            sumEndY += normalizedData[i].second;
         }
-        statLine["start_x"] = sx1 / n_half;
-        statLine["start_y"] = sy1 / n_half;
-        statLine["end_x"] = sx2 / n_half;
-        statLine["end_y"] = sy2 / n_half;
-        statLine["label"] = QString("Stat Line (%1)").arg(n_half);
+        float meanStartX = sumStartX / n_half;
+        float meanStartY = sumStartY / n_half;
+        float meanEndX = sumEndX / n_half;
+        float meanEndY = sumEndY / n_half;
+
+        statLine["start_x"] = meanStartX;
+        statLine["start_y"] = meanStartY;
+        statLine["end_x"] = meanEndX;
+        statLine["end_y"] = meanEndY;
+        statLine["label"] = QString("Statistical Line (mean first/last %1)").arg(n_half);
         statLine["color"] = "#d62728";
         statLine["n_start"] = n_half;
         statLine["n_end"] = n_half;
@@ -756,6 +866,10 @@ QVariant LinePlotViewPlugin::prepareData(
         }
         payload.append(entry);
     }
+
+
+
+
 
     QVariantMap root;
     root["data"] = payload;

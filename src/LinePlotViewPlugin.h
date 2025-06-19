@@ -104,6 +104,14 @@ private:
     mv::Dataset<Points>     _currentDataSet;    // Reference to currently shown data set
     SettingsAction          _settingsAction;
     bool                    _isUpdating = false;
+    bool                    _openGlEnabled = false;
+
+    QTimer _dimensionXRangeDebounceTimer;
+    QTimer _dimensionYRangeDebounceTimer;
+    QTimer _smoothingTypeDebounceTimer;
+    QTimer _normalizationTypeDebounceTimer;
+    QTimer _smoothingWindowDebounceTimer;
+    QTimer  _clusterDatasetDebounceTimer;
 };
 
 /**

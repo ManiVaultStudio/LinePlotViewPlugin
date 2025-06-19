@@ -59,14 +59,8 @@ public:
         const DatasetPickerAction& getPointDatasetAction() const { return _pointDatasetAction; }
         DatasetPickerAction& getPointDatasetAction() { return _pointDatasetAction; }
 
-        const VariantAction& getLineDataVariantAction() const { return _lineDataVariant; }
-        VariantAction& getLineDataVariantAction() { return _lineDataVariant; }
-
         const DimensionPickerAction& getDataDimensionXSelectionAction() const { return _dataDimensionXSelectionAction; }
         DimensionPickerAction& getDataDimensionXSelectionAction() { return _dataDimensionXSelectionAction; }
-
-        const ToggleAction& getDataFromVariantAction() const { return _dataFromVariantAction; }
-        ToggleAction& getDataFromVariantAction() { return _dataFromVariantAction; }
 
         const DimensionPickerAction& getDataDimensionYSelectionAction() const { return _dataDimensionYSelectionAction; }
         DimensionPickerAction& getDataDimensionYSelectionAction() { return _dataDimensionYSelectionAction; }
@@ -80,8 +74,6 @@ public:
         DatasetPickerAction _clusterDatasetAction;
         DimensionPickerAction _dataDimensionXSelectionAction;
         DimensionPickerAction _dataDimensionYSelectionAction;
-        VariantAction _lineDataVariant;
-        ToggleAction    _dataFromVariantAction;
     };
 
     class ChartOptionsHolder : public VerticalGroupAction

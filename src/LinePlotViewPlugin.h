@@ -74,8 +74,9 @@ public:
 
 public slots:
     /** Converts ManiVault's point data to a json-like data structure that Qt can pass to the JS code */
-    void convertDataAndUpdateChart();
-    void updateChart();
+    void updateChartTrigger();
+    void dataConvertChartUpdate();
+    void initTrigger();
 
 private:
     /** Published selections received from the JS side to ManiVault's core */
@@ -99,8 +100,8 @@ private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page
     DropWidget*             _dropWidget;        // Widget for drag and drop behavior
     mv::Dataset<Points>     _currentDataSet;    // Reference to currently shown data set
-    QVariantMap            _currentDataSetMap; // Map of the current dataset to be used in JS
     SettingsAction          _settingsAction;
+    bool                    _isUpdating = false;
 };
 
 /**

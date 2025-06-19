@@ -61,6 +61,6 @@ void ChartWidget::initWebPage()
 {
     qDebug() << "ChartWidget::initWebPage: WebChannel bridge is available.";
     // This call ensures data chart setup when this view plugin is opened via the context menu of a data set
-    _viewJSPlugin->convertDataAndUpdateChart();
+    _viewJSPlugin->initTrigger();
 }
 

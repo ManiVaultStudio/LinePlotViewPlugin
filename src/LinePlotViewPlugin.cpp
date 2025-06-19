@@ -14,6 +14,7 @@
 #include <QVariantMap>
 #include <QMimeData>
 #include <QDebug>
+#include<QtConcurrent>
 
 Q_PLUGIN_METADATA(IID "studio.manivault.LinePlotViewPlugin")
 
@@ -26,75 +27,77 @@ QVector<QPair<float, float>> applyNormalization(
 {
     if (type == NormalizationType::None) return data;
 
-    QVector<QPair<float, float>> result;
-    QVector<float> xVals, yVals;
-    for (const auto& pt : data) {
-        xVals.append(pt.first);
-        yVals.append(pt.second);
-    }
-
-    float xMean = 0, xStd = 1, xMin = 0, xMax = 1;
-    float yMean = 0, yStd = 1, yMin = 0, yMax = 1;
     int n = data.size();
+    QVector<QPair<float, float>> result;
+    result.reserve(n);
 
-    if (type == NormalizationType::ZScore || type == NormalizationType::MinMax) {
-        for (int i = 0; i < n; ++i) {
-            xMean += xVals[i];
-            yMean += yVals[i];
+    float xMean = 0, yMean = 0, xMin = FLT_MAX, xMax = -FLT_MAX, yMin = FLT_MAX, yMax = -FLT_MAX;
+    for (const auto& pt : data) {
+        xMean += pt.first;
+        yMean += pt.second;
+        if (pt.first < xMin) xMin = pt.first;
+        if (pt.first > xMax) xMax = pt.first;
+        if (pt.second < yMin) yMin = pt.second;
+        if (pt.second > yMax) yMax = pt.second;
+    }
+    xMean /= n; yMean /= n;
+
+    float xStd = 1, yStd = 1;
+    if (type == NormalizationType::ZScore) {
+        float xVar = 0, yVar = 0;
+        for (const auto& pt : data) {
+            xVar += (pt.first - xMean) * (pt.first - xMean);
+            yVar += (pt.second - yMean) * (pt.second - yMean);
         }
-        xMean /= n;
-        yMean /= n;
-
-        xMin = *std::min_element(xVals.begin(), xVals.end());
-        xMax = *std::max_element(xVals.begin(), xVals.end());
-        yMin = *std::min_element(yVals.begin(), yVals.end());
-        yMax = *std::max_element(yVals.begin(), yVals.end());
-
-        if (type == NormalizationType::ZScore) {
-            xStd = std::sqrt(std::accumulate(xVals.begin(), xVals.end(), 0.0f,
-                [xMean](float acc, float v) { return acc + (v - xMean) * (v - xMean); }) / n);
-            yStd = std::sqrt(std::accumulate(yVals.begin(), yVals.end(), 0.0f,
-                [yMean](float acc, float v) { return acc + (v - yMean) * (v - yMean); }) / n);
-            xStd = std::max(xStd, 1e-6f);
-            yStd = std::max(yStd, 1e-6f);
-        }
+        xStd = std::max(std::sqrt(xVar / n), 1e-6f);
+        yStd = std::max(std::sqrt(yVar / n), 1e-6f);
     }
 
-    for (int i = 0; i < n; ++i) {
-        float x = xVals[i], y = yVals[i];
+    int jx = 1, jy = 1;
+    if (type == NormalizationType::DecimalScaling) {
+        float maxAbsX = 0, maxAbsY = 0;
+        for (const auto& pt : data) {
+            maxAbsX = std::max(maxAbsX, std::fabs(pt.first));
+            maxAbsY = std::max(maxAbsY, std::fabs(pt.second));
+        }
+        jx = (int)std::ceil(std::log10(maxAbsX + 1e-6f));
+        jy = (int)std::ceil(std::log10(maxAbsY + 1e-6f));
+    }
+
+    for (const auto& pt : data) {
         switch (type) {
         case NormalizationType::ZScore:
-            result.append({ (x - xMean) / xStd, (y - yMean) / yStd });
+            result.append({ (pt.first - xMean) / xStd, (pt.second - yMean) / yStd });
             break;
         case NormalizationType::MinMax:
-            result.append({ (x - xMin) / (xMax - xMin + 1e-6f), (y - yMin) / (yMax - yMin + 1e-6f) });
+            result.append({ (pt.first - xMin) / (xMax - xMin + 1e-6f), (pt.second - yMin) / (yMax - yMin + 1e-6f) });
             break;
         case NormalizationType::DecimalScaling:
-        {
-            int jx = (int)std::ceil(std::log10(std::fabs(*std::max_element(xVals.begin(), xVals.end(),
-                [](float a, float b) { return std::fabs(a) < std::fabs(b); })) + 1e-6f));
-            int jy = (int)std::ceil(std::log10(std::fabs(*std::max_element(yVals.begin(), yVals.end(),
-                [](float a, float b) { return std::fabs(a) < std::fabs(b); })) + 1e-6f));
-            result.append({ x / std::pow(10, jx), y / std::pow(10, jy) });
+            result.append({ pt.first / std::pow(10, jx), pt.second / std::pow(10, jy) });
             break;
-        }
         default:
-            result.append({ x, y });
+            result.append(pt);
             break;
         }
     }
     return result;
 }
-
 QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float>>& data, int windowSize) {
     QVector<QPair<float, float>> smoothed;
-    if (windowSize < 1 || data.size() < windowSize) return data;
-    for (int i = 0; i <= data.size() - windowSize; ++i) {
-        float sumX = 0, sumY = 0;
-        for (int j = 0; j < windowSize; ++j) {
-            sumX += data[i + j].first;
-            sumY += data[i + j].second;
-        }
+    int n = data.size();
+    if (windowSize < 1 || n < windowSize) return data;
+    smoothed.reserve(n - windowSize + 1);
+
+    float sumX = 0, sumY = 0;
+    for (int i = 0; i < windowSize; ++i) {
+        sumX += data[i].first;
+        sumY += data[i].second;
+    }
+    smoothed.append({ sumX / windowSize, sumY / windowSize });
+
+    for (int i = windowSize; i < n; ++i) {
+        sumX += data[i].first - data[i - windowSize].first;
+        sumY += data[i].second - data[i - windowSize].second;
         smoothed.append({ sumX / windowSize, sumY / windowSize });
     }
     return smoothed;
@@ -114,7 +117,10 @@ QVector<QPair<float, float>> applySavitzkyGolay(const QVector<QPair<float, float
 
 QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& data, int windowSize) {
     QVector<QPair<float, float>> smoothed;
-    if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    int n = data.size();
+    if (n < windowSize || windowSize % 2 == 0) return data;
+    smoothed.reserve(n - windowSize + 1);
+
     int half = windowSize / 2;
     QVector<float> kernel(windowSize);
     float sigma = windowSize / 6.0f;
@@ -126,7 +132,7 @@ QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& d
     }
     for (float& val : kernel) val /= sum;
 
-    for (int i = half; i < data.size() - half; ++i) {
+    for (int i = half; i < n - half; ++i) {
         float y = 0.0f;
         for (int j = -half; j <= half; ++j)
             y += data[i + j].second * kernel[j + half];
@@ -148,14 +154,21 @@ QVector<QPair<float, float>> applyExponentialMovingAverage(const QVector<QPair<f
 
 QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float>>& data, int windowSize) {
     QVector<QPair<float, float>> smoothed;
-    if (data.size() < windowSize || windowSize % 2 == 0) return data;
-    int half = windowSize / 2;
-    for (int i = half; i < data.size() - half; ++i) {
-        QVector<float> window;
-        for (int j = -half; j <= half; ++j)
-            window.append(data[i + j].second);
-        std::sort(window.begin(), window.end());
-        smoothed.append({ data[i].first, window[half] });
+    int n = data.size();
+    if (n < windowSize || windowSize % 2 == 0) return data;
+    smoothed.reserve(n - windowSize + 1);
+
+    std::multiset<float> window;
+    for (int i = 0; i < windowSize; ++i)
+        window.insert(data[i].second);
+
+    auto mid = std::next(window.begin(), windowSize / 2);
+    for (int i = windowSize; i <= n; ++i) {
+        smoothed.append({ data[i - windowSize / 2 - 1].first, *mid });
+        if (i == n) break;
+        window.erase(window.find(data[i - windowSize].second));
+        window.insert(data[i].second);
+        mid = std::next(window.begin(), windowSize / 2);
     }
     return smoothed;
 }
@@ -274,13 +287,22 @@ void LinePlotViewPlugin::init()
         return dropRegions;
         });
 
-    connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    const auto dataChanged = [this]() -> void {
+        _isUpdating = true;
+        QtConcurrent::run([this]() {
+            dataConvertChartUpdate();
+            _isUpdating = false;
+            });
+        };
+
+    connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, dataChanged);
 
     const auto pointDatasetChanged = [this]() -> void {
         auto dataset = _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().getCurrentDataset();
         if (dataset.isValid()) {
 
             _currentDataSet = dataset;
+            _dropWidget->setShowDropIndicator(false);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
             if (_currentDataSet->getNumDimensions() >= 2)
@@ -321,7 +343,7 @@ void LinePlotViewPlugin::init()
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints() / 2);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
-                std::max(2, static_cast<int>(_currentDataSet->getNumPoints()) / 10)
+                std::max(2, static_cast<int>(_currentDataSet->getNumPoints()) / 20)
             );
 
             _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
@@ -350,42 +372,47 @@ void LinePlotViewPlugin::init()
         };
     connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, pointDatasetChanged);
 
-    const auto variantOptionChanged = [this]() -> void {
-        if (_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction().isChecked())
-        {
-            updateChart();
-        }
-        else
-        {
-            convertDataAndUpdateChart();
-        }
-        };
-    connect(&_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction(), &ToggleAction::toggled, this, variantOptionChanged);
 
-    const auto variantChanged = [this]() -> void {
-        if (_settingsAction.getDatasetOptionsHolder().getDataFromVariantAction().isChecked())
-        {
-            updateChart();
-        }
-        else
-        {
-            convertDataAndUpdateChart();
-        }
-        };
-    connect(&_settingsAction.getDatasetOptionsHolder().getLineDataVariantAction(), &VariantAction::variantChanged, this, variantChanged);
 
-    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
-    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
-    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
-    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
+    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, &LinePlotViewPlugin::updateChartTrigger);
+    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::updateChartTrigger);
 
-     connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
-    connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(), &IntegralAction::valueChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+     connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::updateChartTrigger);
+    connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(), &IntegralAction::valueChanged, this, &LinePlotViewPlugin::updateChartTrigger);
     
     
 
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
+}
+
+void LinePlotViewPlugin::initTrigger()
+{
+    _isUpdating = true;
+    QtConcurrent::run([this]() {
+        dataConvertChartUpdate();
+        _isUpdating = false;
+        });
+}
+
+void LinePlotViewPlugin::updateChartTrigger()
+{
+    if (_isUpdating)
+    {
+        //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Already updating, skipping this call";
+        return;
+    }
+    else
+    {
+        //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Triggering chart update";
+        _isUpdating = true;
+        QtConcurrent::run([this]() {
+            dataConvertChartUpdate();
+            _isUpdating = false;
+            });
+    }
 }
 
 void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
@@ -406,16 +433,8 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
     
 }
 
-void LinePlotViewPlugin::updateChart()
-{
-    auto variant = _settingsAction.getDatasetOptionsHolder().getLineDataVariantAction().getVariant();
-    _currentDataSetMap.clear();
-    _currentDataSetMap = variant.toMap();
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(_currentDataSetMap);
-}
 
-
-void LinePlotViewPlugin::convertDataAndUpdateChart()
+void LinePlotViewPlugin::dataConvertChartUpdate()
 {
     QVariant root;
     if (!_currentDataSet.isValid())
@@ -442,7 +461,7 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         int dimensionXIndex = -1;
         int dimensionYIndex = -1;
         if (selectedDimensionX.isEmpty() || selectedDimensionY.isEmpty()) {
-            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No dimensions selected for X or Y axis";
+            //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No dimensions selected for X or Y axis";
             return;
         }
         for (int i = 0; i < numDimensions; ++i) {
@@ -471,31 +490,21 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
 
         }
         //set the category values as null for now, we can add categories later
-        QVector<QPair<QString, QColor>> categoryValues;
+        QVector<QPair<QString, QColor>> categoryValues(numPoints, { QString(), QColor() });
         Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
-        if (clusterDataset.isValid())
-        {
-            categoryValues.reserve(numPoints);
-            //fill in temp values in categoryValues
-            for (unsigned int i = 0; i < numPoints; ++i) {
-                categoryValues.push_back({ QString::number(i), QColor(Qt::black) });
-            }
+        if (clusterDataset.isValid()) {
             auto clusters = clusterDataset->getClusters();
-            for (const auto& cluster : clusters)
-            {
+            for (const auto& cluster : clusters) {
                 auto clusterName = cluster.getName();
                 auto clusterColor = cluster.getColor();
                 auto clusterIndices = cluster.getIndices();
-                if (clusterName.isEmpty() || clusterColor.isValid() == false || clusterIndices.empty()) {
-                    continue; // Skip invalid clusters
-                }
+                if (clusterName.isEmpty() || !clusterColor.isValid() || clusterIndices.empty()) continue;
                 for (const auto& index : clusterIndices) {
                     if (index < numPoints) {
                         categoryValues[index] = { clusterName, clusterColor };
                     }
                 }
             }
-
         }
         SmoothingType smoothing = SmoothingType::None;
         const QString smoothingText = _settingsAction.getChartOptionsHolder().getSmoothingTypeAction().getCurrentText();
@@ -552,12 +561,9 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         }
 
         root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
-        _currentDataSetMap.clear();
-        _currentDataSetMap = root.toMap();
-        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
   
     }
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(_currentDataSetMap);
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
 
 }
 
@@ -601,24 +607,39 @@ QVariant LinePlotViewPlugin::prepareData(
 
     // Convert flat coordvalues to point pairs
     QVector<QPair<float, float>> rawData;
+    rawData.reserve(coordvalues.size() / 2);
     for (int i = 0; i < coordvalues.size(); i += 2)
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
 
     // Sort by X, keeping categoryValues in sync
     QVector<int> indices(rawData.size());
     std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-        return rawData[a].first < rawData[b].first;
-        });
-
+    bool alreadySorted = true;
+    for (int i = 1; i < rawData.size(); ++i) {
+        if (rawData[i - 1].first > rawData[i].first) {
+            alreadySorted = false;
+            break;
+        }
+    }
     QVector<QPair<float, float>> sortedData;
     QVector<QPair<QString, QColor>> sortedCategories;
-    sortedData.reserve(rawData.size());
-    sortedCategories.reserve(categoryValues.size());
-    for (int idx : indices) {
-        sortedData.append(rawData[idx]);
-        if (idx < categoryValues.size())
-            sortedCategories.append(categoryValues[idx]);
+    if (alreadySorted) {
+        sortedData = std::move(rawData);
+        sortedCategories = std::move(categoryValues);
+    }
+    else {
+        QVector<int> indices(rawData.size());
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            return rawData[a].first < rawData[b].first;
+            });
+        sortedData.reserve(rawData.size());
+        sortedCategories.reserve(categoryValues.size());
+        for (int idx : indices) {
+            sortedData.append(rawData[idx]);
+            if (idx < categoryValues.size())
+                sortedCategories.append(categoryValues[idx]);
+        }
     }
 
     // Apply normalization BEFORE smoothing

@@ -20,13 +20,30 @@ Q_PLUGIN_METADATA(IID "studio.manivault.LinePlotViewPlugin")
 
 using namespace mv;
 
-
+class FunctionTimer {
+public:
+    FunctionTimer(const QString& functionName)
+        : _functionName(functionName)
+    {
+        _timer.start();
+    }
+    ~FunctionTimer()
+    {
+        qDebug() << _functionName << "took"
+            << _timer.elapsed() / 1000.0 << "seconds";
+    }
+private:
+    QString _functionName;
+    QElapsedTimer _timer;
+};
 QVector<QPair<float, float>> applyNormalization(
     const QVector<QPair<float, float>>& data,
     NormalizationType type)
 {
+    
     if (type == NormalizationType::None) return data;
 
+    FunctionTimer timer(Q_FUNC_INFO);
     int n = data.size();
     QVector<QPair<float, float>> result;
     result.reserve(n);
@@ -86,6 +103,8 @@ QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float
     QVector<QPair<float, float>> smoothed;
     int n = data.size();
     if (windowSize < 1 || n < windowSize) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     float sumX = 0, sumY = 0;
@@ -106,6 +125,8 @@ QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float
 QVector<QPair<float, float>> applySavitzkyGolay(const QVector<QPair<float, float>>& data, int windowSize) {
     QVector<QPair<float, float>> smoothed;
     if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     int half = windowSize / 2;
     for (int i = half; i < data.size() - half; ++i) {
         float sumY = 0;
@@ -119,6 +140,8 @@ QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& d
     QVector<QPair<float, float>> smoothed;
     int n = data.size();
     if (n < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     int half = windowSize / 2;
@@ -144,6 +167,8 @@ QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& d
 QVector<QPair<float, float>> applyExponentialMovingAverage(const QVector<QPair<float, float>>& data, float alpha = 0.2f) {
     QVector<QPair<float, float>> smoothed;
     if (data.isEmpty()) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     float ema = data[0].second;
     for (const auto& point : data) {
         ema = alpha * point.second + (1 - alpha) * ema;
@@ -156,6 +181,8 @@ QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float
     QVector<QPair<float, float>> smoothed;
     int n = data.size();
     if (n < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     std::multiset<float> window;
@@ -174,6 +201,7 @@ QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float
 }
 
 QVector<QPair<float, float>> applyLinearInterpolation(const QVector<QPair<float, float>>& data, int step) {
+    FunctionTimer timer(Q_FUNC_INFO);
     QVector<QPair<float, float>> interpolated;
     for (int i = 0; i < data.size() - step; i += step) {
         interpolated.append(data[i]);
@@ -188,6 +216,8 @@ QVector<QPair<float, float>> applyLinearInterpolation(const QVector<QPair<float,
 QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<float, float>>& data) {
     QVector<QPair<float, float>> smoothed;
     if (data.size() < 3) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
     smoothed.append(data.first());
     for (int i = 1; i < data.size() - 1; ++i) {
         float x = (data[i - 1].first + data[i].first + data[i + 1].first) / 3.0f;
@@ -199,6 +229,7 @@ QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<f
 }
 
 QVector<QPair<float, float>> applyMinMaxSampling(const QVector<QPair<float, float>>& data, int windowSize) {
+    FunctionTimer timer(Q_FUNC_INFO);
     QVector<QPair<float, float>> result;
     for (int i = 0; i < data.size(); i += windowSize) {
         int end = std::min(i + windowSize, static_cast<int>(data.size()));
@@ -340,10 +371,10 @@ void LinePlotViewPlugin::init()
                 }
             }
             
-            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints() / 2);
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()-1);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
-                std::max(2, static_cast<int>(_currentDataSet->getNumPoints()) / 20)
+                std::max(2, static_cast<int>(_currentDataSet->getNumPoints() * 0.2f))
             );
 
             _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
@@ -384,7 +415,7 @@ void LinePlotViewPlugin::init()
     
     
 
-    connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
+    //connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
 }
 
@@ -436,6 +467,7 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
 
 void LinePlotViewPlugin::dataConvertChartUpdate()
 {
+    
     QVariant root;
     if (!_currentDataSet.isValid())
     {
@@ -443,6 +475,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     }
     else
     {
+        FunctionTimer timer(Q_FUNC_INFO);
         //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
         QVector<float> coordvalues;
         
@@ -567,8 +600,9 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
 }
 
-void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
+/*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
 {
+     FunctionTimer timer(Q_FUNC_INFO);
     auto selectionSet = _currentDataSet->getSelection<Points>();
     auto& selectionIndices = selectionSet->indices;
 
@@ -582,7 +616,7 @@ void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selec
         events().notifyDatasetDataSelectionChanged(_currentDataSet->getSourceDataset<DatasetImpl>());
     else
         events().notifyDatasetDataSelectionChanged(_currentDataSet);
-}
+}*/
 
 QString LinePlotViewPlugin::getCurrentDataSetID() const
 {
@@ -604,7 +638,7 @@ QVariant LinePlotViewPlugin::prepareData(
         qDebug() << "prepareData: Invalid input data";
         return QVariant();
     }
-
+    FunctionTimer timer(Q_FUNC_INFO);
     // Convert flat coordvalues to point pairs
     QVector<QPair<float, float>> rawData;
     rawData.reserve(coordvalues.size() / 2);
@@ -721,10 +755,11 @@ QVariant LinePlotViewPlugin::prepareData(
     root["lineColor"] = "#1f77b4";
     return root;
 }
-
+/*
 QVariant LinePlotViewPlugin::prepareDataSample()
 {
 
+    FunctionTimer timer(Q_FUNC_INFO);
     QVariantList payload;
     {
         QVariantMap entry1;
@@ -807,7 +842,7 @@ QVariant LinePlotViewPlugin::prepareDataSample()
     QVariant data = root;
     return data;
 }
-
+*/
 // =============================================================================
 // Plugin Factory 
 // =============================================================================

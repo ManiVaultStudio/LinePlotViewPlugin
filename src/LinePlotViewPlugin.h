@@ -80,7 +80,7 @@ public slots:
 
 private:
     /** Published selections received from the JS side to ManiVault's core */
-    void publishSelection(const std::vector<unsigned int>& selectedIDs);
+    //void publishSelection(const std::vector<unsigned int>& selectedIDs);
 
     QString getCurrentDataSetID() const;
 
@@ -91,7 +91,7 @@ private:
         SmoothingType smoothing = SmoothingType::None,
         int smoothingParam = 5,
         NormalizationType normalization = NormalizationType::None);
-    QVariant prepareDataSample();
+    //QVariant prepareDataSample();
 public:
     void fromVariantMap(const QVariantMap& variantMap) override;
     QVariantMap toVariantMap() const override;

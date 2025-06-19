@@ -393,7 +393,7 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
     if (datasets.isEmpty())
         return;
 
-    qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
+    //qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
     if (!datasets.first().isValid()) {
         _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentIndex(-1);
         qDebug() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
@@ -424,7 +424,7 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
     }
     else
     {
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
+        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
         QVector<float> coordvalues;
         
 
@@ -457,11 +457,11 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
             qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
             return;
         }
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions - X:" << selectedDimensionX << "(Index:" << dimensionXIndex << "), Y:" << selectedDimensionY << "(Index:" << dimensionYIndex << ")";
+        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions - X:" << selectedDimensionX << "(Index:" << dimensionXIndex << "), Y:" << selectedDimensionY << "(Index:" << dimensionYIndex << ")";
 
         coordvalues.reserve(numPoints * 2);
         //categoryValues.reserve(numPoints);
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
+       // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
         //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
         for (unsigned int i = 0; i < numPoints; ++i) {
             float xValue = _currentDataSet->getValueAt(i * numDimensions + dimensionXIndex);
@@ -554,7 +554,7 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
         root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
         _currentDataSetMap.clear();
         _currentDataSetMap = root.toMap();
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
+        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
   
     }
     emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(_currentDataSetMap);

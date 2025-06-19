@@ -59,6 +59,8 @@ void LineChartWidget::setData(const QVariantMap& root)
     }
     QVariantMap statLine = root.value("statLine").toMap();
     QString title = root.value("title").toString();
+    m_xAxisName = root.value("xAxisName", "X").toString();
+    m_yAxisName = root.value("yAxisName", "Y").toString();
     if (root.contains("lineColor")) {
         QVariant colorVar = root.value("lineColor");
         if (colorVar.canConvert<QColor>())
@@ -169,11 +171,11 @@ void LineChartWidget::paintEvent(QPaintEvent*)
     }
     // Axis labels
     p.setFont(QFont("sans", 12, QFont::Bold));
-    p.drawText(QRectF(m_plotArea.left(), m_plotArea.bottom() + 18, m_plotArea.width(), 20), Qt::AlignHCenter, "X");
+    p.drawText(QRectF(m_plotArea.left(), m_plotArea.bottom() + 18, m_plotArea.width(), 20), Qt::AlignHCenter, m_xAxisName);
     p.save();
     p.translate(m_plotArea.left() - 40, m_plotArea.top() + m_plotArea.height() / 2);
     p.rotate(-90);
-    p.drawText(QRectF(-m_plotArea.height() / 2, -20, m_plotArea.height(), 20), Qt::AlignHCenter, "Y");
+    p.drawText(QRectF(-m_plotArea.height() / 2, -20, m_plotArea.height(), 20), Qt::AlignHCenter, m_yAxisName);
     p.restore();
 
     bool hasCategories = m_categories.size() == m_points.size() &&

@@ -875,6 +875,11 @@ QVariant LinePlotViewPlugin::prepareData(
     root["data"] = payload;
     root["statLine"] = statLine;
     root["lineColor"] = "#1f77b4";
+    QString selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
+    QString selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
+    //root["title"] = QString("%1 vs %2").arg(selectedDimensionX, selectedDimensionY);
+    root["xAxisName"] = selectedDimensionX;
+    root["yAxisName"] = selectedDimensionY;
     return root;
 }
 /*

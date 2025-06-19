@@ -90,12 +90,16 @@ public:
         const IntegralAction& getSmoothingWindowAction() const { return _smoothingWindowAction; }
         IntegralAction& getSmoothingWindowAction() { return _smoothingWindowAction; }
 
+        const StringAction& getChartTitleAction() const { return _chartTitleAction; }
+        StringAction& getChartTitleAction() { return _chartTitleAction; }
+
     protected:
         SettingsAction& _settingsOptions;
 
         OptionAction    _smoothingTypeAction;
         OptionAction    _normalizationTypeAction;
         IntegralAction    _smoothingWindowAction;
+        StringAction    _chartTitleAction;
     };
 
 public:

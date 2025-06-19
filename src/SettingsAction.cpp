@@ -34,7 +34,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingTypeAction().setSerializationName("LayerSurfer:SmoothingType");
     _chartOptionsHolder.getNormalizationTypeAction().setSerializationName("LayerSurfer:NormalizationType");
     _chartOptionsHolder.getSmoothingWindowAction().setSerializationName("LayerSurfer:SmoothingWindow");
- 
+    _chartOptionsHolder.getChartTitleAction().setSerializationName("LayerSurfer:ChartTitle");
 
     
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
@@ -46,6 +46,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingTypeAction().setToolTip("Smoothing Type");
     _chartOptionsHolder.getNormalizationTypeAction().setToolTip("Normalization Type");
     _chartOptionsHolder.getSmoothingWindowAction().setToolTip("Smoothing Window");
+    _chartOptionsHolder.getChartTitleAction().setToolTip("Chart Title");
    
 
 
@@ -61,6 +62,8 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getNormalizationTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSmoothingWindowAction().setDefaultWidgetFlags(IntegralAction::SpinBox |IntegralAction::Slider);
+    _chartOptionsHolder.getChartTitleAction().setDefaultWidgetFlags(OptionAction::LineEdit);
+    _chartOptionsHolder.getChartTitleAction().setString("");
 
 
     _chartOptionsHolder.getSmoothingWindowAction().setMinimum(2);
@@ -117,7 +120,8 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     _settingsOptions(settingsAction),
     _smoothingTypeAction(this, "Snoothing Type"),
     _normalizationTypeAction(this, "Normalization Type"),
-    _smoothingWindowAction(this, "Smoothing Window")
+    _smoothingWindowAction(this, "Smoothing Window"),
+    _chartTitleAction(this, "Chart Title")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -126,6 +130,7 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     addAction(&_smoothingTypeAction);
     addAction(&_smoothingWindowAction);
     addAction(&_normalizationTypeAction);
+    addAction(&_chartTitleAction);
 }
 
 void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
@@ -138,6 +143,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _chartOptionsHolder.getSmoothingTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getNormalizationTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingWindowAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getChartTitleAction().fromParentVariantMap(variantMap);
 
 
 }
@@ -152,6 +158,7 @@ QVariantMap SettingsAction::toVariantMap() const
     _chartOptionsHolder.getSmoothingTypeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getNormalizationTypeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingWindowAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getChartTitleAction().insertIntoVariantMap(variantMap);
 
     return variantMap;
 }

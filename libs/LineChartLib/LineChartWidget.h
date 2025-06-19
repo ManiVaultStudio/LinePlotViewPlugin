@@ -33,6 +33,8 @@ private:
     QVariantMap m_statLine;
     QString m_title;
     QColor m_lineColor = QColor("#1f77b4");
+    QString m_xAxisName = "X";
+    QString m_yAxisName = "Y";
 
     QRectF m_plotArea;
     double m_xMin = 0, m_xMax = 0, m_yMin = 0, m_yMax = 0;

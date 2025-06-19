@@ -17,7 +17,8 @@ public:
     void setData(const QVector<QPair<float, float>>& points,
         const QVector<QPair<QString, QColor>>& categories = {},
         const QVariantMap& statLine = QVariantMap(),
-        const QString& title = QString());
+        const QString& title = QString(),
+        const QColor& lineColor = QColor("#1f77b4"));
     void setData(const QVariantMap& root);
 
 protected:
@@ -31,6 +32,7 @@ private:
     QVector<QPair<QString, QColor>> m_categories;
     QVariantMap m_statLine;
     QString m_title;
+    QColor m_lineColor = QColor("#1f77b4");
 
     QRectF m_plotArea;
     double m_xMin = 0, m_xMax = 0, m_yMin = 0, m_yMax = 0;

@@ -376,10 +376,12 @@ void LinePlotViewPlugin::init()
                 }
             }
             
-            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()-1);
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()/2);
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
+            int lowlimit = 2;
+            int highlimit = std::min(static_cast<int>(_currentDataSet->getNumPoints() / 2), static_cast<int>(_currentDataSet->getNumPoints() * 0.2f));
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
-                std::max(2, static_cast<int>(_currentDataSet->getNumPoints() * 0.2f))
+                std::max(lowlimit, highlimit)
             );
 
             _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);

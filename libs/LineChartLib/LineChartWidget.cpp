@@ -14,12 +14,14 @@ LineChartWidget::LineChartWidget(QWidget* parent)
 void LineChartWidget::setData(const QVector<QPair<float, float>>& points,
     const QVector<QPair<QString, QColor>>& categories,
     const QVariantMap& statLine,
-    const QString& title)
+    const QString& title,
+    const QColor& lineColor)
 {
     m_points = points;
     m_categories = categories;
     m_statLine = statLine;
     m_title = title;
+    m_lineColor = lineColor;
     update();
 }
 
@@ -27,6 +29,7 @@ void LineChartWidget::setData(const QVariantMap& root)
 {
     QVector<QPair<float, float>> points;
     QVector<QPair<QString, QColor>> categories;
+    QColor lineColor = QColor("#1f77b4");
     QVariantList dataList = root.value("data").toList();
     for (const QVariant& v : dataList) {
         QVariantMap m = v.toMap();
@@ -56,7 +59,14 @@ void LineChartWidget::setData(const QVariantMap& root)
     }
     QVariantMap statLine = root.value("statLine").toMap();
     QString title = root.value("title").toString();
-    setData(points, categories, statLine, title);
+    if (root.contains("lineColor")) {
+        QVariant colorVar = root.value("lineColor");
+        if (colorVar.canConvert<QColor>())
+            lineColor = colorVar.value<QColor>();
+        else
+            lineColor = QColor(colorVar.toString());
+    }
+    setData(points, categories, statLine, title, lineColor);
 }
 
 void LineChartWidget::resizeGL(int, int)
@@ -122,7 +132,7 @@ void LineChartWidget::paintGL()
     if (m_points.size() < 2) {
         p.setPen(QColor("#888"));
         p.setFont(QFont("sans", 18, QFont::Bold));
-        p.drawText(rect(), Qt::AlignCenter, "No data available");
+        p.drawText(rect(), Qt::AlignCenter, "No data available or insufficient data for chart.");
         return;
     }
 
@@ -193,7 +203,7 @@ void LineChartWidget::paintGL()
     for (int i = 0; i < m_points.size() - 1; ++i) {
         QPointF p0 = dataToScreen(m_points[i].first, m_points[i].second);
         QPointF p1 = dataToScreen(m_points[i + 1].first, m_points[i + 1].second);
-        QColor color = (hasCategories && m_categories[i].second.isValid()) ? m_categories[i].second : QColor("#1f77b4");
+        QColor color = (hasCategories && m_categories[i].second.isValid()) ? m_categories[i].second : m_lineColor;
         QPen pen(color, (i == m_hoveredLineIdx) ? 4 : 2);
         if (i == m_hoveredLineIdx)
             pen.setColor(QColor("#d62728"));
@@ -209,6 +219,7 @@ void LineChartWidget::paintGL()
         double y2 = m_statLine.value("end_y").toDouble();
         QString label = m_statLine.value("label").toString();
         QColor color = QColor(m_statLine.value("color", "#d62728").toString());
+        int pointSize = m_statLine.value("pointSize", 7).toInt();
 
         QPointF s0 = dataToScreen(x1, y1);
         QPointF s1 = dataToScreen(x2, y2);
@@ -220,8 +231,8 @@ void LineChartWidget::paintGL()
         // Endpoints
         p.setBrush(color);
         p.setPen(QPen(Qt::white, 2));
-        p.drawEllipse(s0, 7, 7);
-        p.drawEllipse(s1, 7, 7);
+        p.drawEllipse(s0, pointSize, pointSize);
+        p.drawEllipse(s1, pointSize, pointSize);
 
         // Label
         if (!label.isEmpty()) {
@@ -233,8 +244,26 @@ void LineChartWidget::paintGL()
     }
 
     // === LEGEND ===
-    int legendW = 200, legendH = !m_statLine.isEmpty() ? 60 : 28;
-    int legendX = width() - legendW - 20, legendY = 20;
+    /*int legendW = 200, legendH = !m_statLine.isEmpty() ? 60 : 28;
+
+    // Calculate available space on left and right of plot area at the bottom
+    int margin = 20;
+    int bottomY = height() - legendH - margin;
+    int leftSpace = static_cast<int>(m_plotArea.left()) - margin;
+    int rightSpace = width() - static_cast<int>(m_plotArea.right()) - margin;
+
+    // Default to right, but use left if more space
+    int legendX;
+    if (leftSpace > rightSpace) {
+        // Bottom left
+        legendX = margin;
+    }
+    else {
+        // Bottom right
+        legendX = width() - legendW - margin;
+    }
+    int legendY = height() - legendH - margin;
+
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(255, 255, 255, 240));
     p.drawRect(legendX, legendY, legendW, legendH);
@@ -242,7 +271,7 @@ void LineChartWidget::paintGL()
     p.setFont(QFont("sans", 11));
     int ly = legendY + 10;
     // Main line
-    p.setPen(QPen(QColor("#1f77b4"), 2));
+    p.setPen(QPen(m_lineColor, 2));
     p.drawLine(legendX + 10, ly, legendX + 40, ly);
     p.setPen(Qt::black);
     p.drawText(legendX + 50, ly + 4, "Main Line");
@@ -250,6 +279,7 @@ void LineChartWidget::paintGL()
     // Stat line
     if (!m_statLine.isEmpty()) {
         QColor color = QColor(m_statLine.value("color", "#d62728").toString());
+        int pointSize = m_statLine.value("pointSize", 7).toInt();
         p.setPen(QPen(color, 3, Qt::DashLine));
         p.drawLine(legendX + 10, ly, legendX + 40, ly);
         p.setPen(Qt::black);
@@ -258,12 +288,18 @@ void LineChartWidget::paintGL()
         // Endpoints
         p.setPen(QPen(Qt::white, 2));
         p.setBrush(color);
-        p.drawEllipse(QPointF(legendX + 25, ly), 7, 7);
+        p.drawEllipse(QPointF(legendX + 25, ly), pointSize, pointSize);
         p.setPen(Qt::black);
         int nStart = m_statLine.value("n_start").toInt();
         int nEnd = m_statLine.value("n_end").toInt();
-        p.drawText(legendX + 40, ly + 5, QString("Start: %1, End: %2").arg(nStart).arg(nEnd));
-    }
+        p.drawText(legendX + 40, ly + 5, QString("Start: %1 points").arg(nStart));
+        ly += 18;
+        p.setPen(QPen(Qt::white, 2));
+        p.setBrush(color);
+        p.drawEllipse(QPointF(legendX + 25, ly), pointSize, pointSize);
+        p.setPen(Qt::black);
+        p.drawText(legendX + 40, ly + 5, QString("End: %1 points").arg(nEnd));
+    }*/
 }
 
 void LineChartWidget::mouseMoveEvent(QMouseEvent* event)

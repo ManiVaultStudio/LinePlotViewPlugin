@@ -1,6 +1,7 @@
 #include "LinePlotViewPlugin.h"
 
 #include "ChartWidget.h"
+#include "../libs/LineChartLib/LineChartWidget.h"
 
 #include <DatasetsMimeData.h>
 
@@ -264,6 +265,7 @@ void LinePlotViewPlugin::init()
     layout->setContentsMargins(0, 0, 0, 0);
 
     _chartWidget = new ChartWidget(this);
+    _lineChartWidget = new LineChartWidget();
     _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
     auto settings = new QHBoxLayout();
     settings->setContentsMargins(0, 0, 0, 0);
@@ -271,11 +273,12 @@ void LinePlotViewPlugin::init()
     settings->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
     settings->addWidget(_settingsAction.getChartOptionsHolder().createCollapsedWidget(&getWidget()));
     layout->addLayout(settings);
-    layout->addWidget(_chartWidget,1);
-
+    //layout->addWidget(_chartWidget,1);
+    layout->addWidget(_lineChartWidget, 1);
     getWidget().setLayout(layout);
 
-    _dropWidget = new DropWidget(_chartWidget);
+    //_dropWidget = new DropWidget(_chartWidget);
+    _dropWidget = new DropWidget(_lineChartWidget);
     _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
 
     _dropWidget->initialize([this](const QMimeData* mimeData) -> DropWidget::DropRegions {
@@ -320,10 +323,12 @@ void LinePlotViewPlugin::init()
 
     const auto dataChanged = [this]() -> void {
         _isUpdating = true;
-        QtConcurrent::run([this]() {
+        dataConvertChartUpdate();
+        _isUpdating = false;
+        /*QtConcurrent::run([this]() {
             dataConvertChartUpdate();
             _isUpdating = false;
-            });
+            });*/
         };
 
     connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, dataChanged);
@@ -422,10 +427,12 @@ void LinePlotViewPlugin::init()
 void LinePlotViewPlugin::initTrigger()
 {
     _isUpdating = true;
-    QtConcurrent::run([this]() {
+    dataConvertChartUpdate();
+    _isUpdating = false;
+    /*QtConcurrent::run([this]() {
         dataConvertChartUpdate();
         _isUpdating = false;
-        });
+        });*/
 }
 
 void LinePlotViewPlugin::updateChartTrigger()
@@ -594,10 +601,9 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         }
 
         root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
-  
     }
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
-
+    //emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+   _lineChartWidget->setData(root.toMap());
 }
 
 /*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)

@@ -24,7 +24,7 @@ endif()
 # -----------------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------------
-find_package(Qt6 COMPONENTS Widgets WebEngineWidgets Concurrent REQUIRED)
+find_package(Qt6 COMPONENTS Widgets WebEngineWidgets Concurrent OpenGLWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData CONFIG QUIET)
 
@@ -40,6 +40,11 @@ set(PLUGIN_SOURCES
     src/SettingsAction.h
     src/SettingsAction.cpp
     PluginInfo.json
+)
+
+set(LINECHART_LIB
+    libs/LineChartLib/LineChartWidget.h
+    libs/LineChartLib/LineChartWidget.cpp
 )
 
 set(WEB
@@ -59,13 +64,14 @@ qt6_add_resources(RESOURCE_FILES res/line_chart.qrc)
 
 source_group(Plugin FILES ${PLUGIN_SOURCES})
 source_group(Web FILES ${WEB})
+source_group(LINE_LIB FILES ${LINECHART_LIB})
 source_group(Aux FILES ${AUX})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
 # Create dynamic library for the plugin
-add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES} ${AUX} ${WEB} ${RESOURCE_FILES})
+add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES} ${AUX} ${WEB} ${LINECHART_LIB} ${RESOURCE_FILES})
 
 # -----------------------------------------------------------------------------
 # Target include directories
@@ -91,6 +97,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::WebEngineWidgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Concurrent )
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
 
 # Link to ManiVault and data plugins
 target_link_libraries(${PROJECT_NAME} PRIVATE ManiVault::Core)

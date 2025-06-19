@@ -45,11 +45,11 @@ function drawChart(d) {
         lineColor = undefined;
     }
 
-    if (!parsedData || parsedData.length === 0) {
+    if (!parsedData || parsedData.length < 2) {
         d3.select("div#container")
             .append("div")
             .attr("class", "no-data-message")
-            .text("No data available");
+            .text("No data available or insufficient data for chart.");
         window._lastChartData = null;
         return;
     }

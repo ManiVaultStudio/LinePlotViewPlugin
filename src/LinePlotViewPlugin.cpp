@@ -604,11 +604,25 @@ QVariant LinePlotViewPlugin::prepareData(
     for (int i = 0; i < coordvalues.size(); i += 2)
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
 
-    // Sort by X
-    std::sort(rawData.begin(), rawData.end(), [](auto a, auto b) { return a.first < b.first; });
+    // Sort by X, keeping categoryValues in sync
+    QVector<int> indices(rawData.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+        return rawData[a].first < rawData[b].first;
+        });
+
+    QVector<QPair<float, float>> sortedData;
+    QVector<QPair<QString, QColor>> sortedCategories;
+    sortedData.reserve(rawData.size());
+    sortedCategories.reserve(categoryValues.size());
+    for (int idx : indices) {
+        sortedData.append(rawData[idx]);
+        if (idx < categoryValues.size())
+            sortedCategories.append(categoryValues[idx]);
+    }
 
     // Apply normalization BEFORE smoothing
-    QVector<QPair<float, float>> normalizedData = applyNormalization(rawData, normalization);
+    QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
 
     // Compute statLine on normalized (but unsmoothed) data
     QVariantMap statLine;
@@ -672,8 +686,8 @@ QVariant LinePlotViewPlugin::prepareData(
         QVariantMap entry;
         entry["x"] = smoothedData[i].first;
         entry["y"] = smoothedData[i].second;
-        if (i < categoryValues.size()) {
-            const auto& cat = categoryValues[i];
+        if (i < sortedCategories.size()) {
+            const auto& cat = sortedCategories[i];
             if (!cat.first.isEmpty())
                 entry["category"] = QVariantList{ cat.second.name(), cat.first };
         }

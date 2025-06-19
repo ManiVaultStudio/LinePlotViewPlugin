@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QOpenGLWidget>
+#include <QWidget>
 #include <QVector>
 #include <QPair>
 #include <QColor>
@@ -8,7 +8,7 @@
 #include <QString>
 #include <QRectF>
 
-class LineChartWidget : public QOpenGLWidget
+class LineChartWidget : public QWidget
 {
     Q_OBJECT
 public:
@@ -22,8 +22,8 @@ public:
     void setData(const QVariantMap& root);
 
 protected:
-    void paintGL() override;
-    void resizeGL(int w, int h) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void leaveEvent(QEvent* event) override;
 

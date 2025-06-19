@@ -6,7 +6,7 @@
 #include <cmath>
 
 LineChartWidget::LineChartWidget(QWidget* parent)
-    : QOpenGLWidget(parent)
+    : QWidget(parent)
 {
     setMouseTracking(true);
 }
@@ -69,7 +69,7 @@ void LineChartWidget::setData(const QVariantMap& root)
     setData(points, categories, statLine, title, lineColor);
 }
 
-void LineChartWidget::resizeGL(int, int)
+void LineChartWidget::resizeEvent(QResizeEvent*)
 {
     updatePlotArea();
 }
@@ -120,7 +120,7 @@ float LineChartWidget::screenToDataY(int py) const
     return m_yMax - (py - m_plotArea.top()) / m_plotArea.height() * (m_yMax - m_yMin);
 }
 
-void LineChartWidget::paintGL()
+void LineChartWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
@@ -176,11 +176,11 @@ void LineChartWidget::paintGL()
     p.drawText(QRectF(-m_plotArea.height() / 2, -20, m_plotArea.height(), 20), Qt::AlignHCenter, "Y");
     p.restore();
 
-    // === CATEGORY COLOR BAR ===
     bool hasCategories = m_categories.size() == m_points.size() &&
         std::all_of(m_categories.begin(), m_categories.end(), [](const QPair<QString, QColor>& c) { return c.second.isValid(); });
     int barHeight = 12;
-    int barY = m_plotArea.top() - barHeight - 8;
+    int barY = static_cast<int>(m_plotArea.top()) - barHeight - 8;
+    if (barY < 0) barY = 0;
     if (hasCategories) {
         for (int i = 0; i < m_points.size() - 1; ++i) {
             QColor color = m_categories[i].second;

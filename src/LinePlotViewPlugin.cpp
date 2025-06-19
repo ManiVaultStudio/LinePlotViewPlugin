@@ -265,7 +265,7 @@ void LinePlotViewPlugin::init()
     layout->setContentsMargins(0, 0, 0, 0);
 
     _chartWidget = new ChartWidget(this);
-    _lineChartWidget = new LineChartWidget();
+    _lineChartWidget = new LineChartWidget(&getWidget());
     _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
     auto settings = new QHBoxLayout();
     settings->setContentsMargins(0, 0, 0, 0);

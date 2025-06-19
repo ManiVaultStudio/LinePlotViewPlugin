@@ -21,7 +21,8 @@ using namespace mv::gui;
 SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     WidgetAction(&LinePlotViewPlugin, "LinePlotViewPlugin"),
     _viewerPlugin(LinePlotViewPlugin),
-    _datasetOptionsHolder(*this)
+    _datasetOptionsHolder(*this),
+    _chartOptionsHolder(*this)
 {
     setSerializationName("LinePlotViewPlugin:Settings");
     _datasetOptionsHolder.getPointDatasetAction().setSerializationName("LayerSurfer:PointDataset");
@@ -30,6 +31,10 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setSerializationName("LayerSurfer:DataDimensionXSelection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setSerializationName("LayerSurfer:DataDimensionYSelection");
     _datasetOptionsHolder.getDataFromVariantAction().setSerializationName("LayerSurfer:DataFromVariant");
+    _chartOptionsHolder.getSmoothingTypeAction().setSerializationName("LayerSurfer:SmoothingType");
+    _chartOptionsHolder.getNormalizationTypeAction().setSerializationName("LayerSurfer:NormalizationType");
+    _chartOptionsHolder.getSmoothingWindowAction().setSerializationName("LayerSurfer:SmoothingWindow");
+
     
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
     _datasetOptionsHolder.getClusterDatasetAction().setToolTip("Cluster Dataset");
@@ -37,6 +42,10 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setToolTip("Data Dimension X Selection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setToolTip("Data Dimension Y Selection");
     _datasetOptionsHolder.getDataFromVariantAction().setToolTip("Data From Variant");
+    _chartOptionsHolder.getSmoothingTypeAction().setToolTip("Smoothing Type");
+    _chartOptionsHolder.getNormalizationTypeAction().setToolTip("Normalization Type");
+    _chartOptionsHolder.getSmoothingWindowAction().setToolTip("Smoothing Window");
+
 
     _datasetOptionsHolder.getPointDatasetAction().setFilterFunction([this](mv::Dataset<DatasetImpl> dataset) -> bool {
         return dataset->getDataType() == PointType;
@@ -48,6 +57,33 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataFromVariantAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
     _datasetOptionsHolder.getLineDataVariantAction().setDefaultWidgetFlags(VariantAction::TextHeuristicRole);
+    _chartOptionsHolder.getSmoothingTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _chartOptionsHolder.getNormalizationTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _chartOptionsHolder.getSmoothingWindowAction().setDefaultWidgetFlags(IntegralAction::SpinBox |IntegralAction::Slider);
+
+    _chartOptionsHolder.getSmoothingWindowAction().setMinimum(2);
+    _chartOptionsHolder.getSmoothingWindowAction().setMaximum(1000);
+    _chartOptionsHolder.getSmoothingWindowAction().setValue(5);
+    _chartOptionsHolder.getSmoothingTypeAction().initialize(QStringList{
+        "None",
+        "Moving Average",
+        "Savitzky-Golay",
+        "Gaussian",
+        "Exponential Moving Average",
+        "Cubic Spline",
+        "Linear Interpolation",
+        "Min-Max Sampling",
+        "Running Median"
+        },"None");
+    _chartOptionsHolder.getNormalizationTypeAction().initialize(QStringList{
+        "None",
+        "Z-Score",
+        "Min-Max",
+        "DecimalScaling"
+        }, "None");
+
+
+
 
 
 }
@@ -74,6 +110,22 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     //addAction(&_lineDataVariant);
 }
 
+inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& settingsAction) :
+    VerticalGroupAction(&settingsAction, "Chart Options"),
+    _settingsOptions(settingsAction),
+    _smoothingTypeAction(this, "Snoothing Type"),
+    _normalizationTypeAction(this, "Normalization Type"),
+    _smoothingWindowAction(this, "Smoothing Window")
+{
+    setText("Dataset1 Options");
+    setIcon(mv::util::StyledIcon("database"));
+    setPopupSizeHint(QSize(300, 0));
+    setConfigurationFlag(WidgetAction::ConfigurationFlag::Default);
+    addAction(&_smoothingTypeAction);
+    addAction(&_smoothingWindowAction);
+    addAction(&_normalizationTypeAction);
+}
+
 void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
 {
     WidgetAction::fromVariantMap(variantMap);
@@ -83,6 +135,10 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _datasetOptionsHolder.getDataDimensionYSelectionAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataFromVariantAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getLineDataVariantAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getSmoothingTypeAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getNormalizationTypeAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getSmoothingWindowAction().fromParentVariantMap(variantMap);
+
 }
 
 QVariantMap SettingsAction::toVariantMap() const
@@ -94,5 +150,9 @@ QVariantMap SettingsAction::toVariantMap() const
     _datasetOptionsHolder.getDataDimensionYSelectionAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataFromVariantAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getLineDataVariantAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getSmoothingTypeAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getNormalizationTypeAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getSmoothingWindowAction().insertIntoVariantMap(variantMap);
+
     return variantMap;
 }

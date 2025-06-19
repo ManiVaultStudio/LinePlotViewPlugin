@@ -221,8 +221,12 @@ void LinePlotViewPlugin::init()
 
     _chartWidget = new ChartWidget(this);
     _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
-
-    layout->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
+    auto settings = new QHBoxLayout();
+    settings->setContentsMargins(0, 0, 0, 0);
+    settings->setSpacing(0);
+    settings->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
+    settings->addWidget(_settingsAction.getChartOptionsHolder().createCollapsedWidget(&getWidget()));
+    layout->addLayout(settings);
     layout->addWidget(_chartWidget,1);
 
     getWidget().setLayout(layout);
@@ -314,7 +318,11 @@ void LinePlotViewPlugin::init()
                 }
             }
             
-
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints() / 2);
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
+                std::max(2, static_cast<int>(_currentDataSet->getNumPoints()) / 10)
+            );
 
             _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
             if (clusterDatasets.isEmpty())
@@ -369,6 +377,12 @@ void LinePlotViewPlugin::init()
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(), &DimensionPickerAction::currentDimensionIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
     connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+
+     connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(), &OptionAction::currentTextChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(), &IntegralAction::valueChanged, this, &LinePlotViewPlugin::convertDataAndUpdateChart);
+    
+    
 
     connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
 
@@ -395,8 +409,9 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
 void LinePlotViewPlugin::updateChart()
 {
     auto variant = _settingsAction.getDatasetOptionsHolder().getLineDataVariantAction().getVariant();
-
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(variant.toMap());
+    _currentDataSetMap.clear();
+    _currentDataSetMap = variant.toMap();
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(_currentDataSetMap);
 }
 
 
@@ -482,18 +497,67 @@ void LinePlotViewPlugin::convertDataAndUpdateChart()
             }
 
         }
+        SmoothingType smoothing = SmoothingType::None;
+        const QString smoothingText = _settingsAction.getChartOptionsHolder().getSmoothingTypeAction().getCurrentText();
+        if (smoothingText == "None") {
+            smoothing = SmoothingType::None;
+        }
+        else if (smoothingText == "Moving Average") {
+            smoothing = SmoothingType::MovingAverage;
+        }
+        else if (smoothingText == "Savitzky-Golay") {
+            smoothing = SmoothingType::SavitzkyGolay;
+        }
+        else if (smoothingText == "Gaussian") {
+            smoothing = SmoothingType::Gaussian;
+        }
+        else if (smoothingText == "Exponential Moving Average") {
+            smoothing = SmoothingType::ExponentialMovingAverage;
+        }
+        else if (smoothingText == "Cubic Spline") {
+            smoothing = SmoothingType::CubicSpline;
+        }
+        else if (smoothingText == "Linear Interpolation") {
+            smoothing = SmoothingType::LinearInterpolation;
+        }
+        else if (smoothingText == "Min-Max Sampling") {
+            smoothing = SmoothingType::MinMaxSampling;
+        }
+        else if (smoothingText == "Running Median") {
+            smoothing = SmoothingType::RunningMedian;
+        }
+        else {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
+            smoothing = SmoothingType::None;
+        }
 
+        int windowSize = _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().getValue();
+        NormalizationType normalization = NormalizationType::None;
+        const QString normalizationText = _settingsAction.getChartOptionsHolder().getNormalizationTypeAction().getCurrentText();
+        if (normalizationText == "None") {
+            normalization = NormalizationType::None;
+        }
+        else if (normalizationText == "Z-Score") {
+            normalization = NormalizationType::ZScore;
+        }
+        else if (normalizationText == "Min-Max") {
+            normalization = NormalizationType::MinMax;
+        }
+        else if (normalizationText == "DecimalScaling") {
+            normalization = NormalizationType::DecimalScaling;
+        }
+        else {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
+            normalization = NormalizationType::None;
+        }
 
-        SmoothingType smoothing = SmoothingType::CubicSpline;
-        int windowSize = 500;
-        NormalizationType normalization = NormalizationType::ZScore;
-        //QVariant root=prepareDataSample();
         root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
-
+        _currentDataSetMap.clear();
+        _currentDataSetMap = root.toMap();
         qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Send data from Qt cpp to D3 js";
   
     }
-    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+    emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(_currentDataSetMap);
 
 }
 

@@ -84,10 +84,33 @@ public:
         ToggleAction    _dataFromVariantAction;
     };
 
+    class ChartOptionsHolder : public VerticalGroupAction
+    {
+    public:
+        ChartOptionsHolder(SettingsAction& settingsAction);
+
+
+
+        const OptionAction& getSmoothingTypeAction() const { return _smoothingTypeAction; }
+        OptionAction& getSmoothingTypeAction() { return _smoothingTypeAction; }
+        const OptionAction& getNormalizationTypeAction() const { return _normalizationTypeAction; }
+        OptionAction& getNormalizationTypeAction() { return _normalizationTypeAction; }
+        const IntegralAction& getSmoothingWindowAction() const { return _smoothingWindowAction; }
+        IntegralAction& getSmoothingWindowAction() { return _smoothingWindowAction; }
+
+    protected:
+        SettingsAction& _settingsOptions;
+
+        OptionAction    _smoothingTypeAction;
+        OptionAction    _normalizationTypeAction;
+        IntegralAction    _smoothingWindowAction;
+    };
+
 public:
     SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin);
 
     DatasetOptionsHolder& getDatasetOptionsHolder() { return _datasetOptionsHolder; }
+    ChartOptionsHolder& getChartOptionsHolder() { return _chartOptionsHolder; }
 
 public:
     void fromVariantMap(const QVariantMap& variantMap) override;
@@ -99,7 +122,7 @@ protected:
     LinePlotViewPlugin& _viewerPlugin;
     mv::CoreInterface* _core;
     DatasetOptionsHolder _datasetOptionsHolder;
-
+    ChartOptionsHolder _chartOptionsHolder;
 
     friend class ChannelAction;
 };

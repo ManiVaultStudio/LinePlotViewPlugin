@@ -99,6 +99,7 @@ private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page
     DropWidget*             _dropWidget;        // Widget for drag and drop behavior
     mv::Dataset<Points>     _currentDataSet;    // Reference to currently shown data set
+    QVariantMap            _currentDataSetMap; // Map of the current dataset to be used in JS
     SettingsAction          _settingsAction;
 };
 

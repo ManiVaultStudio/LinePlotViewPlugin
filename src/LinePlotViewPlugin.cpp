@@ -839,8 +839,9 @@ QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QP
         statLine["start_y"] = meanStartY;
         statLine["end_x"] = meanEndX;
         statLine["end_y"] = meanEndY;
-        statLine["label"] = QString("Statistical Line (mean first/last %1)").arg(n_half);
-        statLine["color"] = "#d62728";
+        statLine["start_label"] = QString("Mean first %1").arg(n_half);
+        statLine["end_label"] = QString("Mean last %1").arg(n_half);
+        statLine["color"] = "#000000";
         statLine["n_start"] = actualStartCount;
         statLine["n_end"] = actualEndCount;
         qDebug() << "prepareData: statLine =" << statLine;

@@ -219,8 +219,9 @@ void LineChartWidget::paintEvent(QPaintEvent*)
         double y1 = m_statLine.value("start_y").toDouble();
         double x2 = m_statLine.value("end_x").toDouble();
         double y2 = m_statLine.value("end_y").toDouble();
-        QString label = m_statLine.value("label").toString();
-        QColor color = QColor(m_statLine.value("color", "#d62728").toString());
+        QString startLabel = m_statLine.value("start_label").toString();
+        QString endLabel = m_statLine.value("end_label").toString();
+        QColor color = QColor(m_statLine.value("color", "##000000").toString());
         int pointSize = m_statLine.value("pointSize", 7).toInt();
 
         QPointF s0 = dataToScreen(x1, y1);
@@ -236,12 +237,16 @@ void LineChartWidget::paintEvent(QPaintEvent*)
         p.drawEllipse(s0, pointSize, pointSize);
         p.drawEllipse(s1, pointSize, pointSize);
 
-        // Label
-        if (!label.isEmpty()) {
-            p.setFont(QFont("sans", 10, QFont::Bold));
-            p.setPen(color);
-            QPointF labelPos = (s0 + s1) / 2 + QPointF(8, -8);
-            p.drawText(QRectF(labelPos, QSizeF(120, 20)), Qt::AlignLeft | Qt::AlignTop, label);
+        // Draw start_label near s0, end_label near s1
+        p.setFont(QFont("sans", 10, QFont::Bold));
+        p.setPen(color);
+        if (!startLabel.isEmpty()) {
+            QPointF labelPos0 = s0 + QPointF(8, -8);
+            p.drawText(QRectF(labelPos0, QSizeF(120, 20)), Qt::AlignLeft | Qt::AlignTop, startLabel);
+        }
+        if (!endLabel.isEmpty()) {
+            QPointF labelPos1 = s1 + QPointF(8, -8);
+            p.drawText(QRectF(labelPos1, QSizeF(120, 20)), Qt::AlignLeft | Qt::AlignTop, endLabel);
         }
     }
 

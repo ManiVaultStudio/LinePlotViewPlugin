@@ -571,25 +571,20 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     else
     {
         FunctionTimer timer(Q_FUNC_INFO);
-        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepare payload";
         QVector<float> coordvalues;
         
-
         const auto numPoints = _currentDataSet->getNumPoints();
         const auto numDimensions = _currentDataSet->getNumDimensions();
         const auto dimensionNames = _currentDataSet->getDimensionNames();
 
-        if (numPoints == 0 || numDimensions < 2) {
-            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid data to convert";
-            return;
-        }
+        qDebug() << "dataConvertChartUpdate: numPoints =" << numPoints << " numDimensions =" << numDimensions;
         auto selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
         auto selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
+        qDebug() << "dataConvertChartUpdate: selectedDimensionX =" << selectedDimensionX << " selectedDimensionY =" << selectedDimensionY;
 
         int dimensionXIndex = -1;
         int dimensionYIndex = -1;
         if (selectedDimensionX.isEmpty() || selectedDimensionY.isEmpty()) {
-            //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No dimensions selected for X or Y axis";
             return;
         }
         for (int i = 0; i < numDimensions; ++i) {
@@ -600,31 +595,31 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
                 dimensionYIndex = i;
             }
         }
+        qDebug() << "dataConvertChartUpdate: dimensionXIndex =" << dimensionXIndex << " dimensionYIndex =" << dimensionYIndex;
+
         if (dimensionXIndex == -1 || dimensionYIndex == -1) {
             qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
             return;
         }
-        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions - X:" << selectedDimensionX << "(Index:" << dimensionXIndex << "), Y:" << selectedDimensionY << "(Index:" << dimensionYIndex << ")";
 
         coordvalues.reserve(numPoints * 2);
-        //categoryValues.reserve(numPoints);
-       // qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Number of points:" << numPoints << ", Number of dimensions:" << 2;
-        //points are stored in row major order std vector float as points and dimensions in the dataset we can get value by getvalue at index
         for (unsigned int i = 0; i < numPoints; ++i) {
             float xValue = _currentDataSet->getValueAt(i * numDimensions + dimensionXIndex);
             float yValue = _currentDataSet->getValueAt(i * numDimensions + dimensionYIndex);
             coordvalues.push_back(xValue);
             coordvalues.push_back(yValue);
-
+            // Print the first 5 pairs for debugging
+            if (i < 5) {
+                qDebug() << "dataConvertChartUpdate: i =" << i << " xValue =" << xValue << " yValue =" << yValue;
+            }
         }
-        //set the category values as null for now, we can add categories later
-        //QVector<QPair<QString, QColor>> categoryValues(numPoints, { QString(), QColor() });
+
         QVector<QPair<QString, QColor>> categoryValues;
         categoryValues.reserve(numPoints);
         for (unsigned int i = 0; i < numPoints; ++i) {
             categoryValues.push_back({ QString(), QColor() });
         }
-        //qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Prepared coordinate values and category values";
+
         Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
         if (clusterDataset.isValid()) {
             auto clusters = clusterDataset->getClusters();
@@ -734,29 +729,32 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
         return QString{};
 }
 
-QVariant LinePlotViewPlugin::prepareData(
-    QVector<float>& coordvalues,
-    QVector<QPair<QString, QColor>>& categoryValues,
-    SmoothingType smoothing,
-    int smoothingParam,
-    NormalizationType normalization
-)
+QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues, SmoothingType smoothing, int smoothingParam, NormalizationType normalization)
 {
+    qDebug() << "prepareData: called";
+    qDebug() << "  coordvalues.size() =" << coordvalues.size();
+    qDebug() << "  categoryValues.size() =" << categoryValues.size();
+    qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
+
     if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
         qDebug() << "prepareData: Invalid input data";
         return QVariant();
     }
+
     FunctionTimer timer(Q_FUNC_INFO);
+
     // Convert flat coordvalues to point pairs
     QVector<QPair<float, float>> rawData;
     rawData.reserve(coordvalues.size() / 2);
-    for (int i = 0; i < coordvalues.size(); i += 2)
+    for (int i = 0; i < coordvalues.size(); i += 2) {
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
+    }
+    qDebug() << "prepareData: rawData.size() =" << rawData.size();
+    if (!rawData.isEmpty()) {
+        qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
+    }
 
-    
-    // Sort by X, keeping categoryValues in sync
-    QVector<int> indices(rawData.size());
-    std::iota(indices.begin(), indices.end(), 0);
+    // Sort by X, keeping optional categoryValues in sync if they exist
     bool alreadySorted = true;
     for (int i = 1; i < rawData.size(); ++i) {
         if (rawData[i - 1].first > rawData[i].first) {
@@ -764,11 +762,17 @@ QVariant LinePlotViewPlugin::prepareData(
             break;
         }
     }
+    qDebug() << "prepareData: alreadySorted =" << alreadySorted;
+
     QVector<QPair<float, float>> sortedData;
     QVector<QPair<QString, QColor>> sortedCategories;
+    bool hasCategories = !categoryValues.isEmpty();
+
     if (alreadySorted) {
         sortedData = std::move(rawData);
-        sortedCategories = std::move(categoryValues);
+        if (hasCategories) {
+            sortedCategories = std::move(categoryValues);
+        }
     }
     else {
         QVector<int> indices(rawData.size());
@@ -776,39 +780,60 @@ QVariant LinePlotViewPlugin::prepareData(
         std::sort(indices.begin(), indices.end(), [&](int a, int b) {
             return rawData[a].first < rawData[b].first;
             });
+
         sortedData.reserve(rawData.size());
-        sortedCategories.reserve(categoryValues.size());
+        if (hasCategories) {
+            sortedCategories.reserve(categoryValues.size());
+        }
+
         for (int idx : indices) {
             sortedData.append(rawData[idx]);
-            if (idx < categoryValues.size())
+            if (hasCategories && idx < categoryValues.size()) {
                 sortedCategories.append(categoryValues[idx]);
+            }
         }
+    }
+    if (!sortedData.isEmpty()) {
+        qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
     }
 
     // Apply normalization BEFORE smoothing
+    qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
     QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
+    if (!normalizedData.isEmpty()) {
+        qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
+    }
 
     QVariantMap statLine;
     if (normalizedData.size() >= 2) {
-        int n = normalizedData.size();
-        int n_half = n / 2;
-        if (n_half == 0) n_half = 1; // Avoid division by zero
+        const int n = normalizedData.size();
+        const int n_half = (n + 1) / 2;  // Round up for odd numbers
 
         // Compute means for x and y values
         float sumStartX = 0, sumStartY = 0;
         float sumEndX = 0, sumEndY = 0;
-        for (int i = 0; i < n_half; ++i) {
+
+        const int endStart = std::min(n_half, n);
+        const int startEnd = std::max(n - n_half, 0);
+
+        for (int i = 0; i < endStart; ++i) {
             sumStartX += normalizedData[i].first;
             sumStartY += normalizedData[i].second;
         }
-        for (int i = n - n_half; i < n; ++i) {
+        for (int i = startEnd; i < n; ++i) {
             sumEndX += normalizedData[i].first;
             sumEndY += normalizedData[i].second;
         }
-        float meanStartX = sumStartX / n_half;
-        float meanStartY = sumStartY / n_half;
-        float meanEndX = sumEndX / n_half;
-        float meanEndY = sumEndY / n_half;
+
+        const float actualStartCount = endStart;
+        const float actualEndCount = n - startEnd;
+
+        float meanStartX = sumStartX / actualStartCount;
+        float meanStartY = sumStartY / actualStartCount;
+        float meanEndX = sumEndX / actualEndCount;
+        float meanEndY = sumEndY / actualEndCount;
+
+        qDebug() << "prepareData: statLine means: meanStartX =" << meanStartX << "meanStartY =" << meanStartY << "meanEndX =" << meanEndX << "meanEndY =" << meanEndY;
 
         statLine["start_x"] = meanStartX;
         statLine["start_y"] = meanStartY;
@@ -816,11 +841,13 @@ QVariant LinePlotViewPlugin::prepareData(
         statLine["end_y"] = meanEndY;
         statLine["label"] = QString("Statistical Line (mean first/last %1)").arg(n_half);
         statLine["color"] = "#d62728";
-        statLine["n_start"] = n_half;
-        statLine["n_end"] = n_half;
+        statLine["n_start"] = actualStartCount;
+        statLine["n_end"] = actualEndCount;
+        qDebug() << "prepareData: statLine =" << statLine;
     }
 
     // Apply smoothing to normalized data
+    qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
     QVector<QPair<float, float>> smoothedData;
     switch (smoothing) {
     case SmoothingType::MovingAverage:
@@ -852,47 +879,48 @@ QVariant LinePlotViewPlugin::prepareData(
         smoothedData = normalizedData;
         break;
     }
+    if (!smoothedData.isEmpty()) {
+        qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
+    }
 
-    // Convert back to QVariantList with categories
+    // Convert back to QVariantList with optional categories
     QVariantList payload;
+    payload.reserve(smoothedData.size());
     for (int i = 0; i < smoothedData.size(); ++i) {
         QVariantMap entry;
         entry["x"] = smoothedData[i].first;
         entry["y"] = smoothedData[i].second;
-        if (i < sortedCategories.size()) {
+        if (hasCategories && i < sortedCategories.size() && !sortedCategories[i].first.isEmpty()) {
             const auto& cat = sortedCategories[i];
-            if (!cat.first.isEmpty())
-                entry["category"] = QVariantList{ cat.second.name(), cat.first };
+            entry["category"] = QVariantList{ cat.second.name(), cat.first };
         }
         payload.append(entry);
     }
-
-
-
-
+    qDebug() << "prepareData: payload.size() =" << payload.size();
 
     QVariantMap root;
     root["data"] = payload;
-    root["statLine"] = statLine;
+    if (!statLine.isEmpty()) {
+        root["statLine"] = statLine;
+    }
     root["lineColor"] = "#1f77b4";
+
     QString selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
     QString selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
 
     QString titleText = _settingsAction.getChartOptionsHolder().getChartTitleAction().getString();
-    if (!titleText.isEmpty()) {
-        root["title"] = titleText;
-    }
-    else {
+    root["title"] = titleText.isEmpty()
+        ? QString("%1 vs %2").arg(selectedDimensionX, selectedDimensionY)
+        : titleText;
 
-        root["title"] = QString("%1 vs %2").arg(selectedDimensionX, selectedDimensionY);
-    }
-
-
-    
     root["xAxisName"] = selectedDimensionX;
     root["yAxisName"] = selectedDimensionY;
+
+    qDebug() << "prepareData: root keys =" << root.keys();
+
     return root;
 }
+
 /*
 QVariant LinePlotViewPlugin::prepareDataSample()
 {

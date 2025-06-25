@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+    <title>Line Chart</title>
+    <meta content="utf-8" http-equiv="encoding">
+    <!-- qt connection -->
+    <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script type="text/javascript" src="../js_libs/qwebchannel.tools.js"></script>
+    <!-- d3 -->
+    <script type="text/javascript" src="../js_libs/d3.v7.min.js"></script>
+    <!-- Ensure line-chart.min.js is loaded after d3 -->
+    <script type="text/javascript" src="../js_libs/line-chart.min.js"></script>
+    <!-- plot and communication functions // this has to be loaded after the other scripts -->
+    <script src="line_chart.tools.js"></script>
+    <!-- stylesheet for line plot -->
+    <link rel="stylesheet" type="text/css" href="../js_libs/line-chart.min.css">
+    <!-- auto-resizeable container for plot -->
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .svg-container {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+        .svg-content {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- div element to plot into -->
+    <div id="container" class="svg-container"></div>
+</body>
+</html>

@@ -24,11 +24,9 @@ endif()
 # -----------------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------------
-find_package(Qt6 COMPONENTS Widgets WebEngineWidgets OpenGLWidgets Concurrent REQUIRED)
-find_package(OpenGL REQUIRED)
+find_package(Qt6 COMPONENTS Widgets WebEngineWidgets Concurrent OpenGLWidgets REQUIRED)
 
 find_package(ManiVault COMPONENTS Core PointData ClusterData CONFIG QUIET)
-
 
 # -----------------------------------------------------------------------------
 # Source files
@@ -37,21 +35,43 @@ find_package(ManiVault COMPONENTS Core PointData ClusterData CONFIG QUIET)
 set(PLUGIN_SOURCES
     src/LinePlotViewPlugin.h
     src/LinePlotViewPlugin.cpp
-    PluginInfo.json
-	src/HighPerfLineChart.h
-	src/HighPerfLineChart.cpp
-	src/SettingsAction.h
+    src/ChartWidget.h
+    src/ChartWidget.cpp
+    src/SettingsAction.h
     src/SettingsAction.cpp
+    PluginInfo.json
 )
 
+set(LINECHART_LIB
+    libs/LineChartLib/LineChartWidget.h
+    libs/LineChartLib/LineChartWidget.cpp
+)
+
+set(WEB
+    res/line_chart/line_chart.html
+    res/line_chart/line_chart.tools.js
+    res/js_libs/d3.v7.min.js
+    res/js_libs/qwebchannel.tools.js
+    res/js_libs/line-chart.min.js
+    res/js_libs/line-chart.min.css
+)
+
+set(AUX
+    res/line_chart.qrc
+)
+
+qt6_add_resources(RESOURCE_FILES res/line_chart.qrc)
 
 source_group(Plugin FILES ${PLUGIN_SOURCES})
+source_group(Web FILES ${WEB})
+source_group(LINE_LIB FILES ${LINECHART_LIB})
+source_group(Aux FILES ${AUX})
 
 # -----------------------------------------------------------------------------
 # CMake Target
 # -----------------------------------------------------------------------------
 # Create dynamic library for the plugin
-add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES})
+add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES} ${AUX} ${WEB} ${LINECHART_LIB} ${RESOURCE_FILES})
 
 # -----------------------------------------------------------------------------
 # Target include directories
@@ -76,13 +96,8 @@ endif()
 # Link to Qt libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::WebEngineWidgets)
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Concurrent )
-if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32)
-else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL)
-endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
 
 # Link to ManiVault and data plugins
 target_link_libraries(${PROJECT_NAME} PRIVATE ManiVault::Core)
@@ -105,6 +120,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         --prefix ${ManiVault_INSTALL_DIR}/$<CONFIGURATION>
 )
 
+# Append plugin version to output file
 mv_handle_plugin_config(${PROJECT_NAME}) 
 
 # -----------------------------------------------------------------------------

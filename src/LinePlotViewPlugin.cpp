@@ -1,50 +1,297 @@
-﻿#include "LinePlotViewPlugin.h"
+#include "LinePlotViewPlugin.h"
 
-#include <graphics/Vector2f.h>
+#include "ChartWidget.h"
+#include "../libs/LineChartLib/LineChartWidget.h"
 
 #include <DatasetsMimeData.h>
 
-#include <QLabel>
-#include <QDebug>
-
+#include <vector>
 #include <random>
-#include <numeric>
-#include <QtConcurrent>
-#include <QFuture>
-#include <QMutexLocker>
-#include<QTimer>
-#include<QCoreApplication>
-#include<QElapsedTimer>
-#include<set>
-
+#include <algorithm>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
+#include <QVariantList>
+#include <QVariantMap>
+#include <QMimeData>
+#include <QDebug>
+#include<QtConcurrent>
 
 Q_PLUGIN_METADATA(IID "studio.manivault.LinePlotViewPlugin")
 
 using namespace mv;
 
-// -----------------------------------------------------------------------------
-// LinePlotViewPlugin
-// -----------------------------------------------------------------------------
+class FunctionTimer {
+public:
+    FunctionTimer(const QString& functionName)
+        : _functionName(functionName)
+    {
+        _timer.start();
+    }
+    ~FunctionTimer()
+    {
+        qDebug() << _functionName << "took"
+            << _timer.elapsed() / 1000.0 << "seconds";
+    }
+private:
+    QString _functionName;
+    QElapsedTimer _timer;
+};
+QVector<QPair<float, float>> applyNormalization(
+    const QVector<QPair<float, float>>& data,
+    NormalizationType type)
+{
+    
+    if (type == NormalizationType::None) return data;
+
+    FunctionTimer timer(Q_FUNC_INFO);
+    int n = data.size();
+    QVector<QPair<float, float>> result;
+    result.reserve(n);
+
+    float xMean = 0, yMean = 0, xMin = FLT_MAX, xMax = -FLT_MAX, yMin = FLT_MAX, yMax = -FLT_MAX;
+    for (const auto& pt : data) {
+        xMean += pt.first;
+        yMean += pt.second;
+        if (pt.first < xMin) xMin = pt.first;
+        if (pt.first > xMax) xMax = pt.first;
+        if (pt.second < yMin) yMin = pt.second;
+        if (pt.second > yMax) yMax = pt.second;
+    }
+    xMean /= n; yMean /= n;
+
+    float xStd = 1, yStd = 1;
+    if (type == NormalizationType::ZScore) {
+        float xVar = 0, yVar = 0;
+        for (const auto& pt : data) {
+            xVar += (pt.first - xMean) * (pt.first - xMean);
+            yVar += (pt.second - yMean) * (pt.second - yMean);
+        }
+        xStd = std::max(std::sqrt(xVar / n), 1e-6f);
+        yStd = std::max(std::sqrt(yVar / n), 1e-6f);
+    }
+
+    int jx = 1, jy = 1;
+    if (type == NormalizationType::DecimalScaling) {
+        float maxAbsX = 0, maxAbsY = 0;
+        for (const auto& pt : data) {
+            maxAbsX = std::max(maxAbsX, std::fabs(pt.first));
+            maxAbsY = std::max(maxAbsY, std::fabs(pt.second));
+        }
+        jx = (int)std::ceil(std::log10(maxAbsX + 1e-6f));
+        jy = (int)std::ceil(std::log10(maxAbsY + 1e-6f));
+    }
+
+    for (const auto& pt : data) {
+        switch (type) {
+        case NormalizationType::ZScore:
+            result.append({ (pt.first - xMean) / xStd, (pt.second - yMean) / yStd });
+            break;
+        case NormalizationType::MinMax:
+            result.append({ (pt.first - xMin) / (xMax - xMin + 1e-6f), (pt.second - yMin) / (yMax - yMin + 1e-6f) });
+            break;
+        case NormalizationType::DecimalScaling:
+            result.append({ pt.first / std::pow(10, jx), pt.second / std::pow(10, jy) });
+            break;
+        default:
+            result.append(pt);
+            break;
+        }
+    }
+    return result;
+}
+QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    int n = data.size();
+    if (windowSize < 1 || n < windowSize) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    smoothed.reserve(n - windowSize + 1);
+
+    float sumX = 0, sumY = 0;
+    for (int i = 0; i < windowSize; ++i) {
+        sumX += data[i].first;
+        sumY += data[i].second;
+    }
+    smoothed.append({ sumX / windowSize, sumY / windowSize });
+
+    for (int i = windowSize; i < n; ++i) {
+        sumX += data[i].first - data[i - windowSize].first;
+        sumY += data[i].second - data[i - windowSize].second;
+        smoothed.append({ sumX / windowSize, sumY / windowSize });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applySavitzkyGolay(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    int half = windowSize / 2;
+    for (int i = half; i < data.size() - half; ++i) {
+        float sumY = 0;
+        for (int j = -half; j <= half; ++j) sumY += data[i + j].second;
+        smoothed.append({ data[i].first, sumY / windowSize });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    int n = data.size();
+    if (n < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    smoothed.reserve(n - windowSize + 1);
+
+    int half = windowSize / 2;
+    QVector<float> kernel(windowSize);
+    float sigma = windowSize / 6.0f;
+    float sum = 0.0f;
+    for (int i = 0; i < windowSize; ++i) {
+        int x = i - half;
+        kernel[i] = expf(-0.5f * (x * x) / (sigma * sigma));
+        sum += kernel[i];
+    }
+    for (float& val : kernel) val /= sum;
+
+    for (int i = half; i < n - half; ++i) {
+        float y = 0.0f;
+        for (int j = -half; j <= half; ++j)
+            y += data[i + j].second * kernel[j + half];
+        smoothed.append({ data[i].first, y });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyExponentialMovingAverage(const QVector<QPair<float, float>>& data, float alpha = 0.2f) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.isEmpty()) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    float ema = data[0].second;
+    for (const auto& point : data) {
+        ema = alpha * point.second + (1 - alpha) * ema;
+        smoothed.append({ point.first, ema });
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float>>& data, int windowSize) {
+    QVector<QPair<float, float>> smoothed;
+    int n = data.size();
+    if (n < windowSize || windowSize % 2 == 0) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    smoothed.reserve(n - windowSize + 1);
+
+    std::multiset<float> window;
+    for (int i = 0; i < windowSize; ++i)
+        window.insert(data[i].second);
+
+    auto mid = std::next(window.begin(), windowSize / 2);
+    for (int i = windowSize; i <= n; ++i) {
+        smoothed.append({ data[i - windowSize / 2 - 1].first, *mid });
+        if (i == n) break;
+        window.erase(window.find(data[i - windowSize].second));
+        window.insert(data[i].second);
+        mid = std::next(window.begin(), windowSize / 2);
+    }
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyLinearInterpolation(const QVector<QPair<float, float>>& data, int step) {
+    FunctionTimer timer(Q_FUNC_INFO);
+    QVector<QPair<float, float>> interpolated;
+    for (int i = 0; i < data.size() - step; i += step) {
+        interpolated.append(data[i]);
+        float midX = (data[i].first + data[i + step].first) / 2.0f;
+        float midY = (data[i].second + data[i + step].second) / 2.0f;
+        interpolated.append({ midX, midY });
+    }
+    interpolated.append(data.last());
+    return interpolated;
+}
+
+QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<float, float>>& data) {
+    QVector<QPair<float, float>> smoothed;
+    if (data.size() < 3) return data;
+    
+    FunctionTimer timer(Q_FUNC_INFO);
+    smoothed.append(data.first());
+    for (int i = 1; i < data.size() - 1; ++i) {
+        float x = (data[i - 1].first + data[i].first + data[i + 1].first) / 3.0f;
+        float y = (data[i - 1].second + data[i].second + data[i + 1].second) / 3.0f;
+        smoothed.append({ x, y });
+    }
+    smoothed.append(data.last());
+    return smoothed;
+}
+
+QVector<QPair<float, float>> applyMinMaxSampling(const QVector<QPair<float, float>>& data, int windowSize) {
+    FunctionTimer timer(Q_FUNC_INFO);
+    QVector<QPair<float, float>> result;
+    for (int i = 0; i < data.size(); i += windowSize) {
+        int end = std::min(i + windowSize, static_cast<int>(data.size()));
+        if (end - i < 2) {
+            result.append(data[i]);
+            continue;
+        }
+        auto minIt = std::min_element(data.begin() + i, data.begin() + end, [](auto a, auto b) { return a.second < b.second; });
+        auto maxIt = std::max_element(data.begin() + i, data.begin() + end, [](auto a, auto b) { return a.second < b.second; });
+        result.append(*minIt);
+        if (minIt != maxIt) result.append(*maxIt);
+    }
+    return result;
+}
+
+
 LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     ViewPlugin(factory),
-    _currentDataSet(),
-    _currentDimensions({0, 1}),
+    _chartWidget(nullptr),
     _dropWidget(nullptr),
-    _lineChartWidget(new HighPerfLineChart()),
-    _settingsAction(this, "Settings Action")
+    _settingsAction(*this),
+    _currentDataSet(nullptr)
 {
-    setObjectName("LinePlot view");
+    getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
+}
 
-    // Instantiate new drop widget, setting the LinePlot Widget as its parent
-    // the parent widget hat to setAcceptDrops(true) for the drop widget to work
-    _dropWidget = new DropWidget(_lineChartWidget);
-    _lineChartWidget->setAcceptDrops(true);
-    // Set the drop indicator widget (the widget that indicates that the view is eligible for data dropping)
-    _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData from the data hierarchy here"));
+void LinePlotViewPlugin::init()
+{
+    getWidget().setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
-    // Initialize the drop regions
+    auto layout = new QVBoxLayout();
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    _openGlEnabled = true;
+
+    auto settings = new QHBoxLayout();
+    settings->setContentsMargins(0, 0, 0, 0);
+    settings->setSpacing(0);
+    settings->addWidget(_settingsAction.getDatasetOptionsHolder().createWidget(&getWidget()));
+    settings->addWidget(_settingsAction.getChartOptionsHolder().createCollapsedWidget(&getWidget()));
+    layout->addLayout(settings);
+    if (_openGlEnabled)
+    {
+        _lineChartWidget = new LineChartWidget(&getWidget());
+        layout->addWidget(_lineChartWidget, 1);
+        _dropWidget = new DropWidget(_lineChartWidget);
+    }
+    else
+    {
+        _chartWidget = new ChartWidget(this);
+        _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
+        layout->addWidget(_chartWidget, 1);
+        _dropWidget = new DropWidget(_chartWidget);
+    }
+    
+    getWidget().setLayout(layout);
+
+    _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
+
     _dropWidget->initialize([this](const QMimeData* mimeData) -> DropWidget::DropRegions {
-        // A drop widget can contain zero or more drop regions
+
         DropWidget::DropRegions dropRegions;
 
         const auto datasetsMimeData = dynamic_cast<const DatasetsMimeData*>(mimeData);
@@ -55,18 +302,13 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
         if (datasetsMimeData->getDatasets().count() > 1)
             return dropRegions;
 
-        // Gather information to generate appropriate drop regions
         const auto dataset = datasetsMimeData->getDatasets().first();
-        const auto datasetGuiName = dataset->getGuiName();
+        const auto datasetGuiName = dataset->text();
         const auto datasetId = dataset->getId();
         const auto dataType = dataset->getDataType();
         const auto dataTypes = DataTypes({ PointType });
-        int numOfPointsChildren = 0;
-        for (const auto& child : dataset->getChildren()) {
-            if (child->getDataType() == PointType)
-                numOfPointsChildren++;
-        }
-        if (dataTypes.contains(dataType) && numOfPointsChildren>0) {
+
+        if (dataTypes.contains(dataType)) {
 
             if (datasetId == getCurrentDataSetID()) {
                 dropRegions << new DropWidget::DropRegion(this, "Warning", "Data already loaded", "exclamation-circle", false);
@@ -74,8 +316,9 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
             else {
                 auto candidateDataset = mv::data().getDataset<Points>(datasetId);
 
-                dropRegions << new DropWidget::DropRegion(this, "Points", QString("Visualize %1 as line chart").arg(datasetGuiName), "map-marker-alt", true, [this, candidateDataset]() {
+                dropRegions << new DropWidget::DropRegion(this, "Points", QString("Visualize %1 as parallel coordinates").arg(datasetGuiName), "map-marker-alt", true, [this, candidateDataset]() {
                     loadData({ candidateDataset });
+                    _dropWidget->setShowDropIndicator(false);
                     });
 
             }
@@ -85,207 +328,398 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
         }
 
         return dropRegions;
-    });
+        });
 
-    // update data when data set changed
-    connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, &LinePlotViewPlugin::updatePlot);
+     _dimensionXRangeDebounceTimer.setSingleShot(true);
+     _dimensionYRangeDebounceTimer.setSingleShot(true);
+     _smoothingTypeDebounceTimer.setSingleShot(true);
+     _normalizationTypeDebounceTimer.setSingleShot(true);
+     _smoothingWindowDebounceTimer.setSingleShot(true);
+     _clusterDatasetDebounceTimer.setSingleShot(true);
 
-    // update settings UI when data set changed
-    connect(&_currentDataSet, &Dataset<Points>::changed, this, [this]() {
-        const auto enabled = _currentDataSet.isValid();
 
-        auto& nameString = _settingsAction.getDatasetNameAction();
-        auto& xDimPicker = _settingsAction.getXDimensionPickerAction();
-        auto& yDimPicker = _settingsAction.getYDimensionPickerAction();
-        auto& pointSizeA = _settingsAction.getPointSizeAction();
+    const auto dataChanged = [this]() -> void {
+        _isUpdating = true;
+        dataConvertChartUpdate();
+        _isUpdating = false;
+        /*QtConcurrent::run([this]() {
+            dataConvertChartUpdate();
+            _isUpdating = false;
+            });*/
+        };
 
-        xDimPicker.setEnabled(enabled);
-        yDimPicker.setEnabled(enabled);
-        pointSizeA.setEnabled(enabled);
+    connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, dataChanged);
 
-        if (!enabled)
-            return;
+    const auto pointDatasetChanged = [this]() -> void {
+        auto dataset = _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().getCurrentDataset();
+        if (dataset.isValid()) {
 
-        nameString.setString(_currentDataSet->getGuiName());
+            _currentDataSet = dataset;
+            _dropWidget->setShowDropIndicator(false);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
+            if (_currentDataSet->getNumDimensions() >= 2)
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(0);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(1);
+            }
+            else if (_currentDataSet->getNumDimensions() == 1)
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(0);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            }
+            else
+            {
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
+                _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            }
+            auto children = _currentDataSet->getChildren();
+            Datasets clusterDatasets;
+            for (const auto& child : children)
+            {
+                if (child->getDataType() == ClusterType) {
+                    clusterDatasets.push_back(child);
+                }
+            }
+            auto parent = _currentDataSet->getParent();
+            if (parent.isValid())
+            {
+                auto others = parent->getChildren();
+                for (const auto& other : others)
+                {
+                    if (other->getDataType() == ClusterType) {
+                        clusterDatasets.push_back(other);
+                    }
+                }
+            }
+            
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()/2);
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMinimum(2);
+            int lowlimit = 2;
+            int highlimit = std::min(static_cast<int>(_currentDataSet->getNumPoints() / 2), static_cast<int>(_currentDataSet->getNumPoints() * 0.1f));
+            _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setValue(
+                std::max(lowlimit, highlimit)
+            );
 
-        xDimPicker.setPointsDataset(_currentDataSet);
-        yDimPicker.setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
+            if (clusterDatasets.isEmpty())
+            {
+                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(-1);
+            }
+            else
+            {
+                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(0);
+            }
 
-        xDimPicker.setCurrentDimensionIndex(0);
+            
+        }
+        else
+        {
+            _currentDataSet = Dataset<Points>();
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
+            _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
+            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets({});
+            
+        }
+        events().notifyDatasetDataChanged(_currentDataSet);
+        };
+    connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, pointDatasetChanged);
 
-        const auto yIndex = xDimPicker.getNumberOfDimensions() >= 2 ? 1 : 0;
-        yDimPicker.setCurrentDimensionIndex(yIndex);
 
-    });
 
-    getLearningCenterAction().addVideos(QStringList({ "Practitioner", "Developer" }));
+    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(),
+        &DatasetPickerAction::currentIndexChanged,
+        this,
+        [this]() {
+            _clusterDatasetDebounceTimer.start(500);
+        });
+
+    connect(&_clusterDatasetDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(),
+        &DimensionPickerAction::currentDimensionIndexChanged,
+        this,
+        [this]() {
+            _dimensionXRangeDebounceTimer.start(800);
+        });
+
+    connect(&_dimensionXRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+
+
+    connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction(),
+        &DimensionPickerAction::currentDimensionIndexChanged,
+        this,
+        [this]() {
+            _dimensionYRangeDebounceTimer.start(800);
+        });
+
+    connect(&_dimensionYRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+
+
+    connect(&_settingsAction.getChartOptionsHolder().getNormalizationTypeAction(),
+        &OptionAction::currentIndexChanged,
+        this,
+        [this]() {
+            _normalizationTypeDebounceTimer.start(800);
+        });
+
+    connect(&_normalizationTypeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+    connect(&_settingsAction.getChartOptionsHolder().getSmoothingTypeAction(),
+        &OptionAction::currentIndexChanged,
+        this,
+        [this]() {
+            _smoothingTypeDebounceTimer.start(800);
+        });
+
+    connect(&_smoothingTypeDebounceTimer, &QTimer::timeout, this, [this]() {
+        updateChartTrigger();
+        });
+
+
+     connect(&_settingsAction.getChartOptionsHolder().getSmoothingWindowAction(),
+         &IntegralAction::valueChanged,
+         this,
+         [this]() {
+             _smoothingWindowDebounceTimer.start(800);
+         });
+
+     connect(&_smoothingWindowDebounceTimer, &QTimer::timeout, this, [this]() {
+         updateChartTrigger();
+         });
+
+
+    
+    //connect(&_chartWidget->getCommunicationObject(), &ChartCommObject::passSelectionToCore, this, &LinePlotViewPlugin::publishSelection);
+
 }
 
-void LinePlotViewPlugin::init()
+void LinePlotViewPlugin::initTrigger()
 {
-    // Create layout
-    auto layout = new QVBoxLayout();
-
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(_lineChartWidget, 100);
-
-    // Apply the layout
-    getWidget().setLayout(layout);
-
-    addDockingAction(&_settingsAction);
-
-
+    _isUpdating = true;
+    dataConvertChartUpdate();
+    _isUpdating = false;
+    /*QtConcurrent::run([this]() {
+        dataConvertChartUpdate();
+        _isUpdating = false;
+        });*/
 }
 
-void LinePlotViewPlugin::updatePlot()
+void LinePlotViewPlugin::updateChartTrigger()
 {
-    if (!_currentDataSet.isValid())
+    if (_isUpdating)
     {
-        qDebug() << "LinePlotViewPlugin:: dataset is not valid - no data will be displayed";
+        //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Already updating, skipping this call";
         return;
     }
-
-    if (_currentDataSet->getNumDimensions() < 2)
+    else
     {
-        qDebug() << "LinePlotViewPlugin:: dataset must have at least two dimensions";
-        return;
+        //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Triggering chart update";
+        _isUpdating = true;
+        dataConvertChartUpdate();
+        _isUpdating = false;
+       /* QtConcurrent::run([this]() {
+            dataConvertChartUpdate();
+            _isUpdating = false;
+            });*/
     }
-
-    // Retrieve the data that is to be shown from the core
-    auto newDimX = _settingsAction.getXDimensionPickerAction().getCurrentDimensionIndex();
-    auto newDimY = _settingsAction.getYDimensionPickerAction().getCurrentDimensionIndex();
-
-    if (newDimX >= 0)
-        _currentDimensions[0] = static_cast<unsigned int>(newDimX);
-
-    if (newDimY >= 0)
-        _currentDimensions[1] = static_cast<unsigned int>(newDimY);
-
-    std::vector<mv::Vector2f> data;
-    _currentDataSet->extractDataForDimensions(data, _currentDimensions[0], _currentDimensions[1]);
-
-    /*
-
-    int geneIndex = std::distance(dimensionNames.begin(), it);
-    LineData selectedGeneLineData;
-    QVector<QColor> colorsExpVals = { QColor("#FDCC0D") };
-    std::vector<int> geneIndicesExp = { geneIndex };
-    std::vector<float> expresionValues(_filteredSelectionIndices.size() * geneIndicesExp.size());
-    QVector<QPointF> points;
-
-    int geneIndicesCoord = 1;
-    std::vector<float> coordValues(_filteredSelectionIndices.size() * geneIndicesCoord);
-
-
-    pointDataset->populateDataForDimensions(expresionValues, geneIndicesExp, _filteredSelectionIndices);
-    _rotatedSelectedEmbeddingDataset->extractDataForDimension(coordValues, geneIndicesCoord);
-
-    qDebug() << "Raw data size:" << expresionValues.size();
-    if (!expresionValues.empty()) {
-        qDebug() << "First 10 elements:";
-        for (size_t i = 0; i < std::min(size_t(10), expresionValues.size()); ++i) {
-            qDebug() << i << ":" << expresionValues[i];
-        }
-    }
-
-    // 2. Verify your indices
-    qDebug() << "Points per line:" << _filteredSelectionIndices.size();
-    qDebug() << "Number of lines:" << geneIndicesExp.size();
-
-    //option to normalize expresionValues 
-    if (false) {
-        // Normalize expression values to [0, 1] range
-        float minVal = *std::min_element(expresionValues.begin(), expresionValues.end());
-        float maxVal = *std::max_element(expresionValues.begin(), expresionValues.end());
-        if (maxVal - minVal > 0) {
-            for (auto& val : expresionValues) {
-                val = (val - minVal) / (maxVal - minVal);
-            }
-        }
-    }
-    //option to normalize rotatedYCordinates
-    if (false) {
-        // Normalize rotated Y coordinates to [0, 1] range
-        float minY = *std::min_element(coordValues.begin(), coordValues.end());
-        float maxY = *std::max_element(coordValues.begin(), coordValues.end());
-        if (maxY - minY > 0) {
-            for (auto& val : coordValues) {
-                val = (val - minY) / (maxY - minY);
-            }
-        }
-    }
-
-    auto lineData = convertToLineData(
-        expresionValues,
-        coordValues,
-        static_cast<int>(_filteredSelectionIndices.size()),
-        static_cast<int>(geneIndicesExp.size()),
-        colorsExpVals, // colors
-        true,              // coordIsX
-        true               // sortByX
-    );
-    // 4. Verify output
-    qDebug() << "Converted line data size:" << lineData.size();
-    if (!lineData.empty()) {
-        qDebug() << "First line points:" << lineData.first().points.size();
-        if (!lineData.first().points.empty()) {
-            qDebug() << "Sample point:" << lineData.first().points.first();
-        }
-    }
-
-    // Set data in OpenGL widget
-    _lineChartWidget->setLines(lineData);
-    _lineChartWidget->setShowPoints(_settingsAction.getDataset1OptionsHolder().getShowDataPointsInChartAction().isChecked());
-    _lineChartWidget->setShowLines(_settingsAction.getDataset1OptionsHolder().getShowDataLinesInChartAction().isChecked());
-
-    _numOfPointsInLine1 = lineData.first().points.size();
-    _settingsAction.getDataset1OptionsHolder().getLineSmoothingWindowAction().setMaximum(_numOfPointsInLine1);
-    _lineChartWidget->setConnectStatsLineN(_numOfPointsInLine1 * _settingsAction.getDataset1OptionsHolder().getConnectStatsLineAction().getValue());
-    _lineChartWidget->setConnectStatsLineType(HighPerfLineChart::ConnectStatsType::Mean);
-    _lineChartWidget->setConnectStatsLineEnabled(_settingsAction.getDataset1OptionsHolder().getShowConnectedStatsLineInChartAction().isChecked());
-
-    _lineChartWidget->setShowAvgNumPointsLabel(true);
-
-
-
-    //_lineChartWidget->setMovingAverageWindow(std::max(1, int(_numOfPointsInLine1 * _settingsAction.getDataset1OptionsHolder().getConnectStatsLineAction().getValue())));
-    _lineChartWidget->setMovingAverageWindow(_settingsAction.getDataset1OptionsHolder().getLineSmoothingWindowAction().getValue());
-    _lineChartWidget->setShowMovingAverageLine(_settingsAction.getDataset1OptionsHolder().getShowMovingAverageLineInChartAction().isChecked());
-    mv::theme().isSystemDarkColorSchemeActive() ?
-        _lineChartWidget->setBackgroundColor(Qt::black) :
-        _lineChartWidget->setBackgroundColor(Qt::white);
-    _lineChartWidget->setAxisFont(QFont("Arial", 12));
-    _lineChartWidget->setTickLabelFont(QFont("Arial", 10));
-    mv::theme().isSystemDarkColorSchemeActive() ?
-        _lineChartWidget->setAxisColor(Qt::white) :
-        _lineChartWidget->setAxisColor(Qt::black);
-    // Fix tick label color for correct contrast
-    mv::theme().isSystemDarkColorSchemeActive() ?
-        _lineChartWidget->setTickLabelColor(Qt::white) :
-        _lineChartWidget->setTickLabelColor(Qt::black);
-    _lineChartWidget->setXAxisName("Rotated Y coordinates");
-    _lineChartWidget->setYAxisName("Gene expression " + _selectedGene1);
-    _lineChartWidget->setShowLegend(false);
-    _lineChartWidget->setShowAvgNumPointsLabel(true);
-
-    */
 }
-
 
 void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
 {
-    // Exit if there is nothing to load
     if (datasets.isEmpty())
         return;
 
-    qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
-    _dropWidget->setShowDropIndicator(false);
-
-    // Load the first dataset, changes to _currentDataSet are connected with convertDataAndUpdateChart
-    _currentDataSet = datasets.first();
-    updatePlot();
+    //qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
+    if (!datasets.first().isValid()) {
+        _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentIndex(-1);
+        qDebug() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
+        return;
+    }
+    else
+    {
+        _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentDataset(datasets.first());
+    }
+    
 }
+
+
+void LinePlotViewPlugin::dataConvertChartUpdate()
+{
+    
+    QVariant root;
+    if (!_currentDataSet.isValid())
+    {
+        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
+    }
+    else
+    {
+        FunctionTimer timer(Q_FUNC_INFO);
+        QVector<float> coordvalues;
+        
+        const auto numPoints = _currentDataSet->getNumPoints();
+        const auto numDimensions = _currentDataSet->getNumDimensions();
+        const auto dimensionNames = _currentDataSet->getDimensionNames();
+
+        qDebug() << "dataConvertChartUpdate: numPoints =" << numPoints << " numDimensions =" << numDimensions;
+        auto selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
+        auto selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
+        qDebug() << "dataConvertChartUpdate: selectedDimensionX =" << selectedDimensionX << " selectedDimensionY =" << selectedDimensionY;
+
+        int dimensionXIndex = -1;
+        int dimensionYIndex = -1;
+        if (selectedDimensionX.isEmpty() || selectedDimensionY.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < numDimensions; ++i) {
+            if (dimensionNames[i] == selectedDimensionX) {
+                dimensionXIndex = i;
+            }
+            if (dimensionNames[i] == selectedDimensionY) {
+                dimensionYIndex = i;
+            }
+        }
+        qDebug() << "dataConvertChartUpdate: dimensionXIndex =" << dimensionXIndex << " dimensionYIndex =" << dimensionYIndex;
+
+        if (dimensionXIndex == -1 || dimensionYIndex == -1) {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
+            return;
+        }
+
+        coordvalues.reserve(numPoints * 2);
+        for (unsigned int i = 0; i < numPoints; ++i) {
+            float xValue = _currentDataSet->getValueAt(i * numDimensions + dimensionXIndex);
+            float yValue = _currentDataSet->getValueAt(i * numDimensions + dimensionYIndex);
+            coordvalues.push_back(xValue);
+            coordvalues.push_back(yValue);
+            // Print the first 5 pairs for debugging
+            if (i < 5) {
+                qDebug() << "dataConvertChartUpdate: i =" << i << " xValue =" << xValue << " yValue =" << yValue;
+            }
+        }
+
+        QVector<QPair<QString, QColor>> categoryValues;
+        categoryValues.reserve(numPoints);
+        for (unsigned int i = 0; i < numPoints; ++i) {
+            categoryValues.push_back({ QString(), QColor() });
+        }
+
+        Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
+        if (clusterDataset.isValid()) {
+            auto clusters = clusterDataset->getClusters();
+            for (const auto& cluster : clusters) {
+                auto clusterName = cluster.getName();
+                auto clusterColor = cluster.getColor();
+                auto clusterIndices = cluster.getIndices();
+                if (clusterName.isEmpty() || !clusterColor.isValid() || clusterIndices.empty()) continue;
+                for (const auto& index : clusterIndices) {
+                    if (index < numPoints) {
+                        categoryValues[index] = { clusterName, clusterColor };
+                    }
+                }
+            }
+        }
+        SmoothingType smoothing = SmoothingType::None;
+        const QString smoothingText = _settingsAction.getChartOptionsHolder().getSmoothingTypeAction().getCurrentText();
+        if (smoothingText == "None") {
+            smoothing = SmoothingType::None;
+        }
+        else if (smoothingText == "Moving Average") {
+            smoothing = SmoothingType::MovingAverage;
+        }
+        else if (smoothingText == "Savitzky-Golay") {
+            smoothing = SmoothingType::SavitzkyGolay;
+        }
+        else if (smoothingText == "Gaussian") {
+            smoothing = SmoothingType::Gaussian;
+        }
+        else if (smoothingText == "Exponential Moving Average") {
+            smoothing = SmoothingType::ExponentialMovingAverage;
+        }
+        else if (smoothingText == "Cubic Spline") {
+            smoothing = SmoothingType::CubicSpline;
+        }
+        else if (smoothingText == "Linear Interpolation") {
+            smoothing = SmoothingType::LinearInterpolation;
+        }
+        else if (smoothingText == "Min-Max Sampling") {
+            smoothing = SmoothingType::MinMaxSampling;
+        }
+        else if (smoothingText == "Running Median") {
+            smoothing = SmoothingType::RunningMedian;
+        }
+        else {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
+            smoothing = SmoothingType::None;
+        }
+
+        int windowSize = _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().getValue();
+        NormalizationType normalization = NormalizationType::None;
+        const QString normalizationText = _settingsAction.getChartOptionsHolder().getNormalizationTypeAction().getCurrentText();
+        if (normalizationText == "None") {
+            normalization = NormalizationType::None;
+        }
+        else if (normalizationText == "Z-Score") {
+            normalization = NormalizationType::ZScore;
+        }
+        else if (normalizationText == "Min-Max") {
+            normalization = NormalizationType::MinMax;
+        }
+        else if (normalizationText == "DecimalScaling") {
+            normalization = NormalizationType::DecimalScaling;
+        }
+        else {
+            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
+            normalization = NormalizationType::None;
+        }
+
+        root = prepareData(coordvalues, categoryValues, smoothing, windowSize, normalization);
+    }
+
+    if (_openGlEnabled)
+    {
+        _lineChartWidget->setData(root.toMap());
+    }
+    else
+    {
+        emit _chartWidget->getCommunicationObject().qt_js_setDataAndPlotInJS(root.toMap());
+    }
+   
+}
+
+/*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
+{
+     FunctionTimer timer(Q_FUNC_INFO);
+    auto selectionSet = _currentDataSet->getSelection<Points>();
+    auto& selectionIndices = selectionSet->indices;
+
+    selectionIndices.clear();
+    selectionIndices.reserve(_currentDataSet->getNumPoints());
+    for (const auto id : selectedIDs) {
+        selectionIndices.push_back(id);
+    }
+
+    if (_currentDataSet->isDerivedData())
+        events().notifyDatasetDataSelectionChanged(_currentDataSet->getSourceDataset<DatasetImpl>());
+    else
+        events().notifyDatasetDataSelectionChanged(_currentDataSet);
+}*/
 
 QString LinePlotViewPlugin::getCurrentDataSetID() const
 {
@@ -295,213 +729,316 @@ QString LinePlotViewPlugin::getCurrentDataSetID() const
         return QString{};
 }
 
-
-QVector<LineData> convertToLineData(const std::vector<float>& vecAll, const std::vector<float>& vecCoord,
-    int pointsPerLine,
-    int numOfLines,
-    const QVector<QColor>& colors,
-    bool coordIsX,
-    bool sortByX)
+QVariant LinePlotViewPlugin::prepareData(QVector<float>& coordvalues, QVector<QPair<QString, QColor>>& categoryValues, SmoothingType smoothing, int smoothingParam, NormalizationType normalization)
 {
-    QVector<LineData> lines;
+    qDebug() << "prepareData: called";
+    qDebug() << "  coordvalues.size() =" << coordvalues.size();
+    qDebug() << "  categoryValues.size() =" << categoryValues.size();
+    qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
 
-    qDebug() << "Conversion started. Total elements:" << vecAll.size()
-        << "Points per line:" << pointsPerLine
-        << "Number of lines:" << numOfLines
-        << "coordIsX:" << coordIsX;
-
-    // Validate input
-    if (pointsPerLine < 1 || numOfLines < 1) {
-        qWarning() << "Invalid parameters - pointsPerLine:" << pointsPerLine
-            << "numOfLines:" << numOfLines;
-        return lines;
+    if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
+        qDebug() << "prepareData: Invalid input data";
+        return QVariant();
     }
 
-    const size_t requiredSize = static_cast<size_t>(pointsPerLine * numOfLines);
-    if (vecAll.size() < requiredSize || vecCoord.size() < static_cast<size_t>(pointsPerLine)) {
-        qWarning() << "Insufficient data - Got:" << vecAll.size()
-            << "Need:" << requiredSize << "and vecCoord size:" << vecCoord.size();
-        return lines;
+    FunctionTimer timer(Q_FUNC_INFO);
+
+    // Convert flat coordvalues to point pairs
+    QVector<QPair<float, float>> rawData;
+    rawData.reserve(coordvalues.size() / 2);
+    for (int i = 0; i < coordvalues.size(); i += 2) {
+        rawData.append({ coordvalues[i], coordvalues[i + 1] });
+    }
+    qDebug() << "prepareData: rawData.size() =" << rawData.size();
+    if (!rawData.isEmpty()) {
+        qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
     }
 
-    lines.reserve(numOfLines);
-
-    // Debug print first few values to verify data organization
-    if (!coordIsX) {
-        qDebug() << "First few x values (column order):";
-        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
-            for (int j = 0; j < std::min(5, numOfLines); ++j) {
-                size_t pos = static_cast<size_t>(i) * numOfLines + j;
-                qDebug() << "x[" << i << "][" << j << "]: pos" << pos << "=" << vecAll[pos];
-            }
+    // Sort by X, keeping optional categoryValues in sync if they exist
+    bool alreadySorted = true;
+    for (int i = 1; i < rawData.size(); ++i) {
+        if (rawData[i - 1].first > rawData[i].first) {
+            alreadySorted = false;
+            break;
         }
-        qDebug() << "First few y values:";
-        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
-            qDebug() << "y[" << i << "]:" << vecCoord[i];
+    }
+    qDebug() << "prepareData: alreadySorted =" << alreadySorted;
+
+    QVector<QPair<float, float>> sortedData;
+    QVector<QPair<QString, QColor>> sortedCategories;
+    bool hasCategories = !categoryValues.isEmpty();
+
+    if (alreadySorted) {
+        sortedData = std::move(rawData);
+        if (hasCategories) {
+            sortedCategories = std::move(categoryValues);
         }
     }
     else {
-        qDebug() << "First few y values (column order):";
-        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
-            for (int j = 0; j < std::min(5, numOfLines); ++j) {
-                size_t pos = static_cast<size_t>(i) * numOfLines + j;
-                qDebug() << "y[" << i << "][" << j << "]: pos" << pos << "=" << vecAll[pos];
-            }
+        QVector<int> indices(rawData.size());
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            return rawData[a].first < rawData[b].first;
+            });
+
+        sortedData.reserve(rawData.size());
+        if (hasCategories) {
+            sortedCategories.reserve(categoryValues.size());
         }
-        qDebug() << "First few x values:";
-        for (int i = 0; i < std::min(5, pointsPerLine); ++i) {
-            qDebug() << "x[" << i << "]:" << vecCoord[i];
+
+        for (int idx : indices) {
+            sortedData.append(rawData[idx]);
+            if (hasCategories && idx < categoryValues.size()) {
+                sortedCategories.append(categoryValues[idx]);
+            }
         }
     }
-
-    for (int lineIdx = 0; lineIdx < numOfLines; ++lineIdx) {
-        LineData line;
-
-        // Set color
-        if (!colors.isEmpty() && lineIdx < colors.size()) {
-            line.color = colors[lineIdx];
-        }
-        else {
-            static const QVector<QColor> defaultColors = {
-                Qt::blue, Qt::green, Qt::red, Qt::cyan,
-                Qt::magenta, Qt::yellow, Qt::gray
-            };
-            line.color = defaultColors[lineIdx % defaultColors.size()];
-        }
-
-        line.points.reserve(pointsPerLine);
-
-        for (int pointIdx = 0; pointIdx < pointsPerLine; ++pointIdx) {
-            size_t pos = static_cast<size_t>(pointIdx) * numOfLines + lineIdx;
-            if (pos >= vecAll.size() || pointIdx >= static_cast<int>(vecCoord.size())) {
-                qWarning() << "Index out of bounds at line" << lineIdx
-                    << "point" << pointIdx;
-                continue;
-            }
-
-            float x, y;
-            if (!coordIsX) {
-                x = vecAll[pos];
-                y = vecCoord[pointIdx];
-            }
-            else {
-                x = vecCoord[pointIdx];
-                y = vecAll[pos];
-            }
-
-            if (!std::isfinite(x) || !std::isfinite(y)) {
-                qWarning() << "Non-finite point at line" << lineIdx
-                    << "point" << pointIdx << ":" << x << y;
-                continue;
-            }
-
-            line.points.append(QPointF(x, y));
-        }
-
-        // Sort points if requested
-        if (sortByX) {
-            if (coordIsX) {
-                std::sort(line.points.begin(), line.points.end(), [](const QPointF& a, const QPointF& b) {
-                    return a.x() < b.x();
-                    });
-            }
-            else {
-                std::sort(line.points.begin(), line.points.end(), [](const QPointF& a, const QPointF& b) {
-                    return a.y() < b.y();
-                    });
-            }
-        }
-
-        if (!line.points.isEmpty()) {
-            lines.append(line);
-            //qDebug() << "Added line" << lineIdx << "with" << line.points.size() << "points";
-            if (!line.points.isEmpty()) {
-                //qDebug() << "  First point:" << line.points.first().x() << line.points.first().y();
-                //qDebug() << "  Last point:" << line.points.last().x() << line.points.last().y();
-            }
-        }
-        else {
-            //qWarning() << "Skipping empty line" << lineIdx;
-        }
+    if (!sortedData.isEmpty()) {
+        qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
     }
 
-    qDebug() << "Conversion complete. Generated" << lines.size() << "lines";
-    return lines;
+    // Apply normalization BEFORE smoothing
+    qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
+    QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
+    if (!normalizedData.isEmpty()) {
+        qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
+    }
+
+    QVariantMap statLine;
+    if (normalizedData.size() >= 2) {
+        const int n = normalizedData.size();
+        const int n_half = (n + 1) / 2;  // Round up for odd numbers
+
+        // Compute means for x and y values
+        float sumStartX = 0, sumStartY = 0;
+        float sumEndX = 0, sumEndY = 0;
+
+        const int endStart = std::min(n_half, n);
+        const int startEnd = std::max(n - n_half, 0);
+
+        for (int i = 0; i < endStart; ++i) {
+            sumStartX += normalizedData[i].first;
+            sumStartY += normalizedData[i].second;
+        }
+        for (int i = startEnd; i < n; ++i) {
+            sumEndX += normalizedData[i].first;
+            sumEndY += normalizedData[i].second;
+        }
+
+        const float actualStartCount = endStart;
+        const float actualEndCount = n - startEnd;
+
+        float meanStartX = sumStartX / actualStartCount;
+        float meanStartY = sumStartY / actualStartCount;
+        float meanEndX = sumEndX / actualEndCount;
+        float meanEndY = sumEndY / actualEndCount;
+
+        qDebug() << "prepareData: statLine means: meanStartX =" << meanStartX << "meanStartY =" << meanStartY << "meanEndX =" << meanEndX << "meanEndY =" << meanEndY;
+
+        statLine["start_x"] = meanStartX;
+        statLine["start_y"] = meanStartY;
+        statLine["end_x"] = meanEndX;
+        statLine["end_y"] = meanEndY;
+        statLine["start_label"] = QString("Mean first %1").arg(n_half);
+        statLine["end_label"] = QString("Mean last %1").arg(n_half);
+        statLine["color"] = "#000000";
+        statLine["n_start"] = actualStartCount;
+        statLine["n_end"] = actualEndCount;
+        qDebug() << "prepareData: statLine =" << statLine;
+    }
+
+    // Apply smoothing to normalized data
+    qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
+    QVector<QPair<float, float>> smoothedData;
+    switch (smoothing) {
+    case SmoothingType::MovingAverage:
+        smoothedData = applyMovingAverage(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::SavitzkyGolay:
+        smoothedData = applySavitzkyGolay(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::Gaussian:
+        smoothedData = applyGaussian(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::ExponentialMovingAverage:
+        smoothedData = applyExponentialMovingAverage(normalizedData);
+        break;
+    case SmoothingType::CubicSpline:
+        smoothedData = applyCubicSplineApproximation(normalizedData);
+        break;
+    case SmoothingType::LinearInterpolation:
+        smoothedData = applyLinearInterpolation(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::MinMaxSampling:
+        smoothedData = applyMinMaxSampling(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::RunningMedian:
+        smoothedData = applyRunningMedian(normalizedData, smoothingParam);
+        break;
+    case SmoothingType::None:
+    default:
+        smoothedData = normalizedData;
+        break;
+    }
+    if (!smoothedData.isEmpty()) {
+        qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
+    }
+
+    // Convert back to QVariantList with optional categories
+    QVariantList payload;
+    payload.reserve(smoothedData.size());
+    for (int i = 0; i < smoothedData.size(); ++i) {
+        QVariantMap entry;
+        entry["x"] = smoothedData[i].first;
+        entry["y"] = smoothedData[i].second;
+        if (hasCategories && i < sortedCategories.size() && !sortedCategories[i].first.isEmpty()) {
+            const auto& cat = sortedCategories[i];
+            entry["category"] = QVariantList{ cat.second.name(), cat.first };
+        }
+        payload.append(entry);
+    }
+    qDebug() << "prepareData: payload.size() =" << payload.size();
+
+    QVariantMap root;
+    root["data"] = payload;
+    if (!statLine.isEmpty()) {
+        root["statLine"] = statLine;
+    }
+    root["lineColor"] = "#1f77b4";
+
+    QString selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
+    QString selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
+
+    QString titleText = _settingsAction.getChartOptionsHolder().getChartTitleAction().getString();
+    root["title"] = titleText.isEmpty()
+        ? QString("%1 vs %2").arg(selectedDimensionX, selectedDimensionY)
+        : titleText;
+
+    root["xAxisName"] = selectedDimensionX;
+    root["yAxisName"] = selectedDimensionY;
+
+    qDebug() << "prepareData: root keys =" << root.keys();
+
+    return root;
 }
 
-// -----------------------------------------------------------------------------
-// LinePlotViewPluginFactory
-// -----------------------------------------------------------------------------
+/*
+QVariant LinePlotViewPlugin::prepareDataSample()
+{
+
+    FunctionTimer timer(Q_FUNC_INFO);
+    QVariantList payload;
+    {
+        QVariantMap entry1;
+        entry1["x"] = 1.0;
+        entry1["y"] = 5.2;
+        entry1["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry1;
+
+        QVariantMap entry2;
+        entry2["x"] = 2.0;
+        entry2["y"] = 7.8;
+        entry2["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry2;
+
+        QVariantMap entry3;
+        entry3["x"] = 3.0;
+        entry3["y"] = 6.1;
+        entry3["category"] = QVariantList{ "#ff7f0e", "Type B" };
+        payload << entry3;
+
+        QVariantMap entry4;
+        entry4["x"] = 4.0;
+        entry4["y"] = 8.3;
+        entry4["category"] = QVariantList{ "#ff7f0e", "Type B" };
+        payload << entry4;
+
+        QVariantMap entry5;
+        entry5["x"] = 5.0;
+        entry5["y"] = 4.7;
+        entry5["category"] = QVariantList{ "#2ca02c", "Type C" };
+        payload << entry5;
+
+        QVariantMap entry6;
+        entry6["x"] = 6.0;
+        entry6["y"] = 9.0;
+        entry6["category"] = QVariantList{ "#2ca02c", "Type C" };
+        payload << entry6;
+
+        QVariantMap entry7;
+        entry7["x"] = 7.0;
+        entry7["y"] = 3.5;
+        entry7["category"] = QVariantList{ "#ff7f0e", "Type B" };
+        payload << entry7;
+
+        QVariantMap entry8;
+        entry8["x"] = 8.0;
+        entry8["y"] = 6.8;
+        entry8["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry8;
+
+        QVariantMap entry9;
+        entry9["x"] = 9.0;
+        entry9["y"] = 5.5;
+        entry9["category"] = QVariantList{ "#2ca02c", "Type C" };
+        payload << entry9;
+
+        QVariantMap entry10;
+        entry10["x"] = 10.0;
+        entry10["y"] = 7.0;
+        entry10["category"] = QVariantList{ "#1f77b4", "Type A" };
+        payload << entry10;
+    }
+
+    QVariantMap statLine;
+    statLine["start_x"] = (1.0 + 2.0 + 3.0 + 4.0 + 5.0) / 5.0;
+    statLine["start_y"] = (5.2 + 7.8 + 6.1 + 8.3 + 4.7) / 5.0;
+    statLine["end_x"] = (6.0 + 7.0 + 8.0 + 9.0 + 10.0) / 5.0;
+    statLine["end_y"] = (9.0 + 3.5 + 6.8 + 5.5 + 7.0) / 5.0;
+    statLine["n_start"] = 5;
+    statLine["n_end"] = 5;
+    statLine["label"] = "Statistical Line (mean first/last 5)";
+    statLine["color"] = "#d62728";
+
+    QVariantMap root;
+    root["data"] = payload;
+    root["statLine"] = statLine;
+    root["title"] = "Example Line Chart Title";
+    root["lineColor"] = "#1f77b4";
+
+    QVariant data = root;
+    return data;
+}
+*/
+// =============================================================================
+// Plugin Factory 
+// =============================================================================
+
+LinePlotViewPluginFactory::LinePlotViewPluginFactory()
+{
+    setIconByName("chart-line");
+
+    getPluginMetadata().setDescription("Line Javascript view plugin");
+    getPluginMetadata().setSummary("This plugin shows how to implement a basic Javascript-based view plugin in ManiVault Studio.");
+    getPluginMetadata().setCopyrightHolder({ "BioVault (Biomedical Visual Analytics Unit LUMC - TU Delft)" });
+    getPluginMetadata().setAuthors({
+        });
+    getPluginMetadata().setOrganizations({
+        { "LUMC", "Leiden University Medical Center", "https://www.lumc.nl/en/" },
+        { "TU Delft", "Delft university of technology", "https://www.tudelft.nl/" }
+        });
+    getPluginMetadata().setLicenseText("This plugin is distributed under the [LGPL v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html) license.");
+}
 
 ViewPlugin* LinePlotViewPluginFactory::produce()
 {
     return new LinePlotViewPlugin(this);
 }
 
-LinePlotViewPluginFactory::LinePlotViewPluginFactory() :
-    _statusBarAction(nullptr),
-    _statusBarPopupGroupAction(this, "Popup Group"),
-    _statusBarPopupAction(this, "Popup")
-{
-    setIconByName("cube");
-
-    getPluginMetadata().setDescription("Example OpenGL view");
-    getPluginMetadata().setSummary("This example shows how to implement a basic OpenGL-based view plugin in ManiVault Studio.");
-    getPluginMetadata().setCopyrightHolder({ "BioVault (Biomedical Visual Analytics Unit LUMC - TU Delft)" });
-    getPluginMetadata().setAuthors({
-	});
-    getPluginMetadata().setOrganizations({
-        { "LUMC", "Leiden University Medical Center", "https://www.lumc.nl/en/" },
-        { "TU Delft", "Delft university of technology", "https://www.tudelft.nl/" }
-    });
-    getPluginMetadata().setLicenseText("This plugin is distributed under the [LGPL v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html) license.");
-}
-
-void LinePlotViewPluginFactory::initialize()
-{
-    ViewPluginFactory::initialize();
-
-    // Configure the status bar popup action
-    _statusBarPopupAction.setDefaultWidgetFlags(StringAction::Label);
-    _statusBarPopupAction.setString("<p><b>LinePlot View</b></p><p>This is an example of a plugin status bar item</p><p>A concrete example on how this status bar was created can be found <a href='https://github.com/ManiVaultStudio/ExamplePlugins/blob/master/ExampleViewOpenGL/src/LinePlotViewPlugin.cpp'>here</a>.</p>");
-    _statusBarPopupAction.setPopupSizeHint(QSize(200, 10));
-
-    _statusBarPopupGroupAction.setShowLabels(false);
-    _statusBarPopupGroupAction.setConfigurationFlag(WidgetAction::ConfigurationFlag::NoGroupBoxInPopupLayout);
-    _statusBarPopupGroupAction.addAction(&_statusBarPopupAction);
-    _statusBarPopupGroupAction.setWidgetConfigurationFunction([](WidgetAction* action, QWidget* widget) -> void {
-        auto label = widget->findChild<QLabel*>("Label");
-
-        Q_ASSERT(label != nullptr);
-
-        if (label == nullptr)
-            return;
-
-        label->setOpenExternalLinks(true);
-    });
-    
-
-    _statusBarAction = new PluginStatusBarAction(this, "LinePlot View", getKind());
-
-    _statusBarAction->getConditionallyVisibleAction().setChecked(false);    // The status bar is shown, regardless of the number of instances
-    //_statusBarAction->getConditionallyVisibleAction().setChecked(true);   // The status bar is shown when there is at least one instance of the plugin
-
-    // Sets the action that is shown when the status bar is clicked
-    _statusBarAction->setPopupAction(&_statusBarPopupGroupAction);
-
-    // Position to the right of the status bar action
-    _statusBarAction->setIndex(-1);
-
-    // Assign the status bar action so that it will appear on the main window status bar
-    setStatusBarAction(_statusBarAction);
-}
-
 mv::DataTypes LinePlotViewPluginFactory::supportedDataTypes() const
 {
     DataTypes supportedTypes;
-
     supportedTypes.append(PointType);
-
     return supportedTypes;
 }
 
@@ -515,25 +1052,30 @@ mv::gui::PluginTriggerActions LinePlotViewPluginFactory::getPluginTriggerActions
 
     const auto numberOfDatasets = datasets.count();
 
-    if (numberOfDatasets == 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
-        auto children = datasets.first()->getChildren();
-        int numOfPointsChildren = 0;
-        for (const auto& child : children) {
-            if (child->getDataType() == PointType)
-                numOfPointsChildren++;
-        }
-        if(numOfPointsChildren>0)
-            {   auto pluginTriggerAction = new PluginTriggerAction(const_cast<LinePlotViewPluginFactory*>(this), this, "LinePlot", "LinePlot view data", icon(), [this, getPluginInstance, datasets](PluginTriggerAction& pluginTriggerAction) -> void {
-                for (auto& dataset : datasets)
-                    getPluginInstance()->loadData(Datasets({ dataset }));
-                });
+    /*if (numberOfDatasets >= 1 && PluginFactory::areAllDatasetsOfTheSameType(datasets, PointType)) {
+        auto pluginTriggerAction = new PluginTriggerAction(const_cast<LinePlotViewPluginFactory*>(this), this, "Line JS", "View JavaScript visualization", icon(), [this, getPluginInstance, datasets](PluginTriggerAction& pluginTriggerAction) -> void {
+            for (auto dataset : datasets)
+                getPluginInstance()->loadData(Datasets({ dataset }));
 
-            pluginTriggerActions << pluginTriggerAction;
-            }
-    }
+        });
+
+        pluginTriggerActions << pluginTriggerAction;
+    }*/
 
     return pluginTriggerActions;
 }
 
+void LinePlotViewPlugin::fromVariantMap(const QVariantMap& variantMap)
+{
+    ViewPlugin::fromVariantMap(variantMap);
+    mv::util::variantMapMustContain(variantMap, "LinePlotViewPlugin:Settings");
+    _settingsAction.fromVariantMap(variantMap["LinePlotViewPlugin:Settings"].toMap());
+}
 
+QVariantMap LinePlotViewPlugin::toVariantMap() const
+{
+    QVariantMap variantMap = ViewPlugin::toVariantMap();
 
+    _settingsAction.insertIntoVariantMap(variantMap);
+    return variantMap;
+}

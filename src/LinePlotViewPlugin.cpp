@@ -219,8 +219,11 @@ void LinePlotViewPlugin::init()
         _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setCurrentDimensionIndex(-1);
         if (colorDataset.isValid() && colorDataset->getDataType()==PointType)
         {
-            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(colorDataset);
-            
+            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(colorDataset); 
+        }
+        else
+        {
+            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(Dataset<Points>());
         }
 
         updateChartTrigger();

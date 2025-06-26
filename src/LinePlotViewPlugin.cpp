@@ -110,7 +110,8 @@ void LinePlotViewPlugin::init()
      _smoothingTypeDebounceTimer.setSingleShot(true);
      _normalizationTypeDebounceTimer.setSingleShot(true);
      _smoothingWindowDebounceTimer.setSingleShot(true);
-     _clusterDatasetDebounceTimer.setSingleShot(true);
+     _colorDatasetDebounceTimer.setSingleShot(true);
+     _colorPointDatasetDimensionDebounceTimer.setSingleShot(true);
 
 
     const auto dataChanged = [this]() -> void {
@@ -149,20 +150,21 @@ void LinePlotViewPlugin::init()
                 _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
             }
             auto children = _currentDataSet->getChildren();
+            auto parent = _currentDataSet->getParent();
             Datasets clusterDatasets;
             for (const auto& child : children)
             {
-                if (child->getDataType() == ClusterType) {
+                if (child->getDataType() == ClusterType || child->getDataType() == PointType) {
                     clusterDatasets.push_back(child);
                 }
             }
-            auto parent = _currentDataSet->getParent();
+            
             if (parent.isValid())
             {
                 auto others = parent->getChildren();
                 for (const auto& other : others)
                 {
-                    if (other->getDataType() == ClusterType) {
+                    if (other->getDataType() == ClusterType|| other->getDataType() == PointType) {
                         clusterDatasets.push_back(other);
                     }
                 }
@@ -176,14 +178,14 @@ void LinePlotViewPlugin::init()
                 std::max(lowlimit, highlimit)
             );
 
-            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets(clusterDatasets);
+            _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().setDatasets(clusterDatasets);
             if (clusterDatasets.isEmpty())
             {
-                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(-1);
+                _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().setCurrentIndex(-1);
             }
             else
             {
-                _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setCurrentIndex(0);
+                _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().setCurrentIndex(0);
             }
 
             
@@ -195,7 +197,7 @@ void LinePlotViewPlugin::init()
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setCurrentDimensionIndex(-1);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setCurrentDimensionIndex(-1);
-            _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().setDatasets({});
+            _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().setDatasets({});
             
         }
         events().notifyDatasetDataChanged(_currentDataSet);
@@ -204,18 +206,37 @@ void LinePlotViewPlugin::init()
 
 
 
-    connect(&_settingsAction.getDatasetOptionsHolder().getClusterDatasetAction(),
+    connect(&_settingsAction.getDatasetOptionsHolder().getColorDatasetAction(),
         &DatasetPickerAction::currentIndexChanged,
         this,
         [this]() {
-            _clusterDatasetDebounceTimer.start(500);
+            _colorDatasetDebounceTimer.start(500);
         });
 
-    connect(&_clusterDatasetDebounceTimer, &QTimer::timeout, this, [this]() {
+    connect(&_colorDatasetDebounceTimer, &QTimer::timeout, this, [this]() {
+
+        auto colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
+        _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setCurrentDimensionIndex(-1);
+        if (colorDataset.isValid() && colorDataset->getDataType()==PointType)
+        {
+            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(colorDataset);
+            
+        }
+
         updateChartTrigger();
         });
 
+    connect(&_settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction(),
+        &DimensionPickerAction::currentDimensionIndexChanged,
+        this,
+        [this]() {
+            _colorPointDatasetDimensionDebounceTimer.start(500);
+        });
 
+    connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
+
+        updateChartTrigger();
+        });
 
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(),
         &DimensionPickerAction::currentDimensionIndexChanged,
@@ -378,13 +399,18 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         QVector<float> coordvalues;
         QVector<QPair<QString, QColor>> categoryValues;
 
-        Dataset<Clusters> clusterDataset = _settingsAction.getDatasetOptionsHolder().getClusterDatasetAction().getCurrentDataset();
-
+        Dataset colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
+        int colorPointDatasetDimensionIndex = -1;
+        if (colorDataset->getDataType() == PointType)
+        {
+            colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
+        }
         extractLinePlotData(
             _currentDataSet,
             dimensionXIndex,
             dimensionYIndex,
-            clusterDataset,
+            colorDataset->getId(),
+            colorPointDatasetDimensionIndex,
             coordvalues,
             categoryValues
         );

@@ -74,7 +74,8 @@ void extractLinePlotData(
     const mv::Dataset<Points>& currentDataSet,
     int dimensionXIndex,
     int dimensionYIndex,
-    const mv::Dataset<Clusters>& clusterDataset,
+    QString colorDatasetID,
+    int colorPointDatasetDimensionIndex,
     QVector<float>& coordvalues,
     QVector<QPair<QString, QColor>>& categoryValues
 );

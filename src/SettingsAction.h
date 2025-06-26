@@ -62,16 +62,20 @@ public:
         const DimensionPickerAction& getDataDimensionXSelectionAction() const { return _dataDimensionXSelectionAction; }
         DimensionPickerAction& getDataDimensionXSelectionAction() { return _dataDimensionXSelectionAction; }
 
+        const DimensionPickerAction& getColorPointDatasetDimensionAction() const { return _colorPointDatasetDimensionAction; }
+        DimensionPickerAction& getColorPointDatasetDimensionAction() { return _colorPointDatasetDimensionAction; }
+
         const DimensionPickerAction& getDataDimensionYSelectionAction() const { return _dataDimensionYSelectionAction; }
         DimensionPickerAction& getDataDimensionYSelectionAction() { return _dataDimensionYSelectionAction; }
 
-        const DatasetPickerAction& getClusterDatasetAction() const { return _clusterDatasetAction; }
-        DatasetPickerAction& getClusterDatasetAction() { return _clusterDatasetAction; }
+        const DatasetPickerAction& getColorDatasetAction() const { return _colorDatasetAction; }
+        DatasetPickerAction& getColorDatasetAction() { return _colorDatasetAction; }
 
     protected:
         SettingsAction& _settingsOptions;
         DatasetPickerAction _pointDatasetAction;
-        DatasetPickerAction _clusterDatasetAction;
+        DatasetPickerAction _colorDatasetAction;
+        DimensionPickerAction _colorPointDatasetDimensionAction;
         DimensionPickerAction _dataDimensionXSelectionAction;
         DimensionPickerAction _dataDimensionYSelectionAction;
     };

@@ -39,6 +39,8 @@ set(PLUGIN_SOURCES
     src/ChartWidget.cpp
     src/SettingsAction.h
     src/SettingsAction.cpp
+    src/LinePlotUtils.h
+    src/LinePlotUtils.cpp
     PluginInfo.json
 )
 

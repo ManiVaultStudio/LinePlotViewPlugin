@@ -26,10 +26,12 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
 {
     setSerializationName("LinePlotViewPlugin:Settings");
     _datasetOptionsHolder.getPointDatasetAction().setSerializationName("LayerSurfer:PointDataset");
-    _datasetOptionsHolder.getClusterDatasetAction().setSerializationName("LayerSurfer:ClusterDataset");
+    _datasetOptionsHolder.getColorDatasetAction().setSerializationName("LayerSurfer:ClusterDataset");
 
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setSerializationName("LayerSurfer:DataDimensionXSelection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setSerializationName("LayerSurfer:DataDimensionYSelection");
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().setSerializationName("LayerSurfer:ColorPointDatasetDimension");
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setSerializationName("LayerSurfer:PointDatasetDimensionColorMap");
 
     _chartOptionsHolder.getSmoothingTypeAction().setSerializationName("LayerSurfer:SmoothingType");
     _chartOptionsHolder.getNormalizationTypeAction().setSerializationName("LayerSurfer:NormalizationType");
@@ -38,10 +40,12 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
 
     
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
-    _datasetOptionsHolder.getClusterDatasetAction().setToolTip("Cluster Dataset");
+    _datasetOptionsHolder.getColorDatasetAction().setToolTip("Cluster Dataset");
 
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setToolTip("Data Dimension X Selection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setToolTip("Data Dimension Y Selection");
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().setToolTip("Color Point Dataset Dimension");
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setToolTip("Point Dataset Dimension Color Map");
 
     _chartOptionsHolder.getSmoothingTypeAction().setToolTip("Smoothing Type");
     _chartOptionsHolder.getNormalizationTypeAction().setToolTip("Normalization Type");
@@ -55,10 +59,13 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     });
 
     _datasetOptionsHolder.getPointDatasetAction().setDefaultWidgetFlags(OptionAction::ComboBox);
-    _datasetOptionsHolder.getClusterDatasetAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _datasetOptionsHolder.getColorDatasetAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
-
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().setDisabled(true);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setDisabled(true);
     _chartOptionsHolder.getSmoothingTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getNormalizationTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSmoothingWindowAction().setDefaultWidgetFlags(IntegralAction::SpinBox |IntegralAction::Slider);
@@ -101,7 +108,9 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     _pointDatasetAction(this, "Point dataset"),
     _dataDimensionXSelectionAction(this, "Data Dimension X Selection"),
     _dataDimensionYSelectionAction(this, "Data Dimension Y Selection"),
-    _clusterDatasetAction(this, "Cluster dataset")
+    _colorDatasetAction(this, "Color dataset"),
+    _colorPointDatasetDimensionAction(this, "Color Point Dataset Dimension"),
+    _pointDatasetDimensionColorMapAction(this, "Point Dataset Dimension Color Map")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -110,7 +119,9 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     addAction(&_pointDatasetAction);
     addAction(&_dataDimensionXSelectionAction);
     addAction(&_dataDimensionYSelectionAction);
-    addAction(&_clusterDatasetAction);
+    addAction(&_colorDatasetAction);
+    addAction(&_colorPointDatasetDimensionAction);
+    addAction(&_pointDatasetDimensionColorMapAction);
     //addAction(&_dataFromVariantAction);
     //addAction(&_lineDataVariant);
 }
@@ -137,13 +148,15 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
 {
     WidgetAction::fromVariantMap(variantMap);
     _datasetOptionsHolder.getPointDatasetAction().fromParentVariantMap(variantMap);
-    _datasetOptionsHolder.getClusterDatasetAction().fromParentVariantMap(variantMap);
+    _datasetOptionsHolder.getColorDatasetAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getNormalizationTypeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingWindowAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getChartTitleAction().fromParentVariantMap(variantMap);
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().fromParentVariantMap(variantMap);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().fromParentVariantMap(variantMap);
 
 
 }
@@ -152,13 +165,15 @@ QVariantMap SettingsAction::toVariantMap() const
 {
     QVariantMap variantMap = WidgetAction::toVariantMap();
     _datasetOptionsHolder.getPointDatasetAction().insertIntoVariantMap(variantMap);
-    _datasetOptionsHolder.getClusterDatasetAction().insertIntoVariantMap(variantMap);
+    _datasetOptionsHolder.getColorDatasetAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionXSelectionAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingTypeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getNormalizationTypeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSmoothingWindowAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getChartTitleAction().insertIntoVariantMap(variantMap);
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().insertIntoVariantMap(variantMap);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().insertIntoVariantMap(variantMap);
 
     return variantMap;
 }

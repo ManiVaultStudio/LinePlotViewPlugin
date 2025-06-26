@@ -71,13 +71,18 @@ public:
         const DatasetPickerAction& getColorDatasetAction() const { return _colorDatasetAction; }
         DatasetPickerAction& getColorDatasetAction() { return _colorDatasetAction; }
 
+        const ColorMap1DAction& getPointDatasetDimensionColorMapAction() const { return _pointDatasetDimensionColorMapAction; }
+        ColorMap1DAction& getPointDatasetDimensionColorMapAction() { return _pointDatasetDimensionColorMapAction; }
+
     protected:
-        SettingsAction& _settingsOptions;
-        DatasetPickerAction _pointDatasetAction;
-        DatasetPickerAction _colorDatasetAction;
-        DimensionPickerAction _colorPointDatasetDimensionAction;
-        DimensionPickerAction _dataDimensionXSelectionAction;
-        DimensionPickerAction _dataDimensionYSelectionAction;
+        SettingsAction&         _settingsOptions;
+        DatasetPickerAction     _pointDatasetAction;
+        DatasetPickerAction     _colorDatasetAction;
+        DimensionPickerAction   _colorPointDatasetDimensionAction;
+        DimensionPickerAction   _dataDimensionXSelectionAction;
+        DimensionPickerAction   _dataDimensionYSelectionAction;
+        ColorMap1DAction        _pointDatasetDimensionColorMapAction;
+
     };
 
     class ChartOptionsHolder : public VerticalGroupAction

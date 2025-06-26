@@ -113,6 +113,7 @@ private:
     QTimer _smoothingWindowDebounceTimer;
     QTimer  _colorDatasetDebounceTimer;
     QTimer  _colorPointDatasetDimensionDebounceTimer;
+    QTimer  _colorPointDatasetColorMapDebounceTimer;
 };
 
 /**

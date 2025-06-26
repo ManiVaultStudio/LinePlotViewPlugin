@@ -112,6 +112,7 @@ void LinePlotViewPlugin::init()
      _smoothingWindowDebounceTimer.setSingleShot(true);
      _colorDatasetDebounceTimer.setSingleShot(true);
      _colorPointDatasetDimensionDebounceTimer.setSingleShot(true);
+     _colorPointDatasetColorMapDebounceTimer.setSingleShot(true);
 
 
     const auto dataChanged = [this]() -> void {
@@ -220,10 +221,14 @@ void LinePlotViewPlugin::init()
         if (colorDataset.isValid() && colorDataset->getDataType()==PointType)
         {
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(colorDataset); 
+            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setEnabled(true);
+            _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().setEnabled(true);
         }
         else
         {
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(Dataset<Points>());
+            _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setDisabled(true);
+            _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().setDisabled(true);
         }
 
         updateChartTrigger();
@@ -237,6 +242,18 @@ void LinePlotViewPlugin::init()
         });
 
     connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
+
+        updateChartTrigger();
+        });
+
+    connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction(),
+        &ColorMap1DAction::imageChanged,
+        this,
+        [this]() {
+            _colorPointDatasetColorMapDebounceTimer.start(500);
+        });
+
+    connect(&_colorPointDatasetColorMapDebounceTimer, &QTimer::timeout, this, [this]() {
 
         updateChartTrigger();
         });
@@ -404,9 +421,12 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
         Dataset colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
         int colorPointDatasetDimensionIndex = -1;
+        QString colormapselectedVal="";
+
         if (colorDataset->getDataType() == PointType)
         {
             colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
+            colormapselectedVal = _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().getColorMap();
         }
         extractLinePlotData(
             _currentDataSet,
@@ -414,6 +434,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             dimensionYIndex,
             colorDataset->getId(),
             colorPointDatasetDimensionIndex,
+            colormapselectedVal,
             coordvalues,
             categoryValues
         );

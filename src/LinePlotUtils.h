@@ -27,7 +27,29 @@ private:
     QString _functionName;
     QElapsedTimer _timer;
 };
-
+enum class ColormapTypeValue {
+    BlackWhite,
+    RdYlBu,
+    Qualitative10,
+    YlGn,
+    RdYlGn,
+    GnBu,
+    YlGnBu,
+    Spectral,
+    BrBg,
+    YlOrBr,
+    RdBu,
+    RdPu,
+    Plasma,
+    PuOr,
+    BuPu,
+    Reds,
+    Viridis,
+    Q_BiGrRd,
+    Magma,
+    PiYG,
+    Constant
+};
 // Normalization and smoothing utilities
 QVector<QPair<float, float>> applyNormalization(
     const QVector<QPair<float, float>>& data,
@@ -76,6 +98,7 @@ void extractLinePlotData(
     int dimensionYIndex,
     QString colorDatasetID,
     int colorPointDatasetDimensionIndex,
+    QString colormapSelectedVal,
     QVector<float>& coordvalues,
     QVector<QPair<QString, QColor>>& categoryValues
 );

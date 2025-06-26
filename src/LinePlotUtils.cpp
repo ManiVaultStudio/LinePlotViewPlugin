@@ -23,32 +23,6 @@ FunctionTimer::~FunctionTimer()
              << _timer.elapsed() / 1000.0 << "seconds";
 }
 
-
-
-
-enum class ColormapType {
-    BlackWhite,
-    RdYlBu,
-    Qualitative10,
-    YlGn,
-    RdYlGn,
-    GnBu,
-    YlGnBu,
-    Spectral,
-    BrBg,
-    YlOrBr,
-    RdBu,
-    RdPu,
-    Plasma,
-    PuOr,
-    BuPu,
-    Reds,
-    Viridis,
-    Q_BiGrRd,
-    Magma,
-    PiYG
-};
-
 static const std::array<QColor, 10> kQualitative10 = {
     QColor("#8dd3c7"), QColor("#ffffb3"), QColor("#bebada"), QColor("#fb8072"),
     QColor("#80b1d3"), QColor("#fdb462"), QColor("#b3de69"), QColor("#fccde5"),
@@ -157,18 +131,18 @@ static const std::array<QColor, 11> kPiYG = {
     QColor("#7fbc41"), QColor("#4d9221"), QColor("#276419")
 };
 
-QColor getColorFromColormap(float t, ColormapType type) {
+QColor getColorFromColormap(float t, ColormapTypeValue type) {
     t = std::clamp(t, 0.0f, 1.0f);
     auto pick = [t](const auto& arr) {
         int idx = static_cast<int>(t * (arr.size() - 1) + 0.5f);
         return arr[std::clamp(idx, 0, (int)arr.size() - 1)];
         };
     switch (type) {
-    case ColormapType::BlackWhite:
+    case ColormapTypeValue::BlackWhite:
         return QColor::fromRgbF(t, t, t);
-    case ColormapType::Qualitative10:
+    case ColormapTypeValue::Qualitative10:
         return pick(kQualitative10);
-    case ColormapType::RdYlBu:
+    case ColormapTypeValue::RdYlBu:
         // Simple 3-color interpolation: red -> yellow -> blue
         if (t < 0.5f) {
             float s = t * 2.0f;
@@ -178,40 +152,42 @@ QColor getColorFromColormap(float t, ColormapType type) {
             float s = (t - 0.5f) * 2.0f;
             return QColor::fromRgbF(1.0f - s, 1.0f - s, s); // yellow to blue
         }
-    case ColormapType::YlGn:
+    case ColormapTypeValue::YlGn:
         return pick(kYlGn);
-    case ColormapType::RdYlGn:
+    case ColormapTypeValue::RdYlGn:
         return pick(kRdYlGn);
-    case ColormapType::GnBu:
+    case ColormapTypeValue::GnBu:
         return pick(kGnBu);
-    case ColormapType::YlGnBu:
+    case ColormapTypeValue::YlGnBu:
         return pick(kYlGnBu);
-    case ColormapType::Spectral:
+    case ColormapTypeValue::Spectral:
         return pick(kSpectral);
-    case ColormapType::BrBg:
+    case ColormapTypeValue::BrBg:
         return pick(kBrBg);
-    case ColormapType::YlOrBr:
+    case ColormapTypeValue::YlOrBr:
         return pick(kYlOrBr);
-    case ColormapType::RdBu:
+    case ColormapTypeValue::RdBu:
         return pick(kRdBu);
-    case ColormapType::RdPu:
+    case ColormapTypeValue::RdPu:
         return pick(kRdPu);
-    case ColormapType::Plasma:
+    case ColormapTypeValue::Plasma:
         return pick(kPlasma);
-    case ColormapType::PuOr:
+    case ColormapTypeValue::PuOr:
         return pick(kPuOr);
-    case ColormapType::BuPu:
+    case ColormapTypeValue::BuPu:
         return pick(kBuPu);
-    case ColormapType::Reds:
+    case ColormapTypeValue::Reds:
         return pick(kReds);
-    case ColormapType::Viridis:
+    case ColormapTypeValue::Viridis:
         return pick(kViridis);
-    case ColormapType::Q_BiGrRd:
+    case ColormapTypeValue::Q_BiGrRd:
         return pick(kQ_BiGrRd);
-    case ColormapType::Magma:
+    case ColormapTypeValue::Magma:
         return pick(kMagma);
-    case ColormapType::PiYG:
+    case ColormapTypeValue::PiYG:
         return pick(kPiYG);
+    case ColormapTypeValue::Constant:
+        return QColor::fromHsl(240, 175, 159);
     default:
         return QColor::fromHsvF(t, 1.0, 1.0); // fallback
     }
@@ -645,12 +621,40 @@ QVariant prepareData(
     return root;
 }
 
+ColormapTypeValue getColorMapFromString(const QString& colormapselectedVal)
+{
+    static const QHash<QString, ColormapTypeValue> colormapMap = {
+        { "Black to white", ColormapTypeValue::BlackWhite },
+        { "RdYlBu",         ColormapTypeValue::RdYlBu },
+        { "qualitative",    ColormapTypeValue::Qualitative10 },
+        { "YlGn",           ColormapTypeValue::YlGn },
+        { "RdYlGn",         ColormapTypeValue::RdYlGn },
+        { "GnBu",           ColormapTypeValue::GnBu },
+        { "YlGnBu",         ColormapTypeValue::YlGnBu },
+        { "Spectral",       ColormapTypeValue::Spectral },
+        { "BrBG",           ColormapTypeValue::BrBg },
+        { "YlOrBr",         ColormapTypeValue::YlOrBr },
+        { "RdBu",           ColormapTypeValue::RdBu },
+        { "RdPu",           ColormapTypeValue::RdPu },
+        { "Plasma",         ColormapTypeValue::Plasma },
+        { "PuOr",           ColormapTypeValue::PuOr },
+        { "BuPu",           ColormapTypeValue::BuPu },
+        { "Reds",           ColormapTypeValue::Reds },
+        { "Viridis",        ColormapTypeValue::Viridis },
+        { "Q_BlGrRd",       ColormapTypeValue::Q_BiGrRd },
+        { "Magma",          ColormapTypeValue::Magma },
+        { "PiYG",           ColormapTypeValue::PiYG }
+    };
+    return colormapMap.value(colormapselectedVal, ColormapTypeValue::Constant);
+}
+
 void extractLinePlotData(
     const mv::Dataset<Points>& currentDataSet,
     int dimensionXIndex,
     int dimensionYIndex,
     QString colorDatasetID,
     int colorPointDatasetDimensionIndex,
+    QString colormapSelectedVal,
     QVector<float>& coordvalues,
     QVector<QPair<QString, QColor>>& categoryValues
 ) {
@@ -709,13 +713,16 @@ void extractLinePlotData(
                 { 
                     if (colorPointDatasetDimensionIndex >= 0)
                     {
+                        ColormapTypeValue colormap= getColorMapFromString(colormapSelectedVal);
+                        
+                        
                         std::vector<float> pointsValues(numofPoints);
                         pointDataset->extractDataForDimension(pointsValues, colorPointDatasetDimensionIndex);
                         float minValue = *std::min_element(pointsValues.begin(), pointsValues.end());
                         float maxValue = *std::max_element(pointsValues.begin(), pointsValues.end());
                         float range = maxValue - minValue;
                         if (range == 0) range = 1;
-                        ColormapType colormap = ColormapType::Viridis;
+                        
 
                         for (unsigned int i = 0; i < numofPoints; ++i) {
                             float value = pointsValues[i];

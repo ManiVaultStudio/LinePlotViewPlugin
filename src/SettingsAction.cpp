@@ -31,6 +31,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setSerializationName("LayerSurfer:DataDimensionXSelection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setSerializationName("LayerSurfer:DataDimensionYSelection");
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().setSerializationName("LayerSurfer:ColorPointDatasetDimension");
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setSerializationName("LayerSurfer:PointDatasetDimensionColorMap");
 
     _chartOptionsHolder.getSmoothingTypeAction().setSerializationName("LayerSurfer:SmoothingType");
     _chartOptionsHolder.getNormalizationTypeAction().setSerializationName("LayerSurfer:NormalizationType");
@@ -44,6 +45,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setToolTip("Data Dimension X Selection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setToolTip("Data Dimension Y Selection");
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().setToolTip("Color Point Dataset Dimension");
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setToolTip("Point Dataset Dimension Color Map");
 
     _chartOptionsHolder.getSmoothingTypeAction().setToolTip("Smoothing Type");
     _chartOptionsHolder.getNormalizationTypeAction().setToolTip("Normalization Type");
@@ -61,7 +63,9 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().setDefaultWidgetFlags(OptionAction::ComboBox);
-
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setDefaultWidgetFlags(OptionAction::ComboBox);
+    _datasetOptionsHolder.getColorPointDatasetDimensionAction().setDisabled(true);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().setDisabled(true);
     _chartOptionsHolder.getSmoothingTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getNormalizationTypeAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSmoothingWindowAction().setDefaultWidgetFlags(IntegralAction::SpinBox |IntegralAction::Slider);
@@ -105,7 +109,8 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     _dataDimensionXSelectionAction(this, "Data Dimension X Selection"),
     _dataDimensionYSelectionAction(this, "Data Dimension Y Selection"),
     _colorDatasetAction(this, "Color dataset"),
-    _colorPointDatasetDimensionAction(this, "Color Point Dataset Dimension")
+    _colorPointDatasetDimensionAction(this, "Color Point Dataset Dimension"),
+    _pointDatasetDimensionColorMapAction(this, "Point Dataset Dimension Color Map")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -116,6 +121,7 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
     addAction(&_dataDimensionYSelectionAction);
     addAction(&_colorDatasetAction);
     addAction(&_colorPointDatasetDimensionAction);
+    addAction(&_pointDatasetDimensionColorMapAction);
     //addAction(&_dataFromVariantAction);
     //addAction(&_lineDataVariant);
 }
@@ -150,6 +156,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _chartOptionsHolder.getSmoothingWindowAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getChartTitleAction().fromParentVariantMap(variantMap);
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().fromParentVariantMap(variantMap);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().fromParentVariantMap(variantMap);
 
 
 }
@@ -166,6 +173,7 @@ QVariantMap SettingsAction::toVariantMap() const
     _chartOptionsHolder.getSmoothingWindowAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getChartTitleAction().insertIntoVariantMap(variantMap);
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().insertIntoVariantMap(variantMap);
+    _datasetOptionsHolder.getPointDatasetDimensionColorMapAction().insertIntoVariantMap(variantMap);
 
     return variantMap;
 }

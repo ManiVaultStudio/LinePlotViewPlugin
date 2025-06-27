@@ -406,11 +406,13 @@ void sortDataAndCategories(
     const QVector<QPair<float, float>>& rawData,
     const QVector<QPair<QString, QColor>>& categoryValues,
     QVector<QPair<float, float>>& sortedData,
-    QVector<QPair<QString, QColor>>& sortedCategories)
+    QVector<QPair<QString, QColor>>& sortedCategories,
+    QString axis = "X")
 {
     bool alreadySorted = true;
     for (int i = 1; i < rawData.size(); ++i) {
-        if (rawData[i - 1].first > rawData[i].first) {
+        if ((axis == "X" && rawData[i - 1].first > rawData[i].first) ||
+            (axis == "Y" && rawData[i - 1].second > rawData[i].second)) {
             alreadySorted = false;
             break;
         }
@@ -422,12 +424,15 @@ void sortDataAndCategories(
         if (hasCategories) {
             sortedCategories = categoryValues;
         }
-    } else {
+    }
+    else {
         QVector<int> indices(rawData.size());
         std::iota(indices.begin(), indices.end(), 0);
         std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-            return rawData[a].first < rawData[b].first;
-        });
+            return (axis =="X")
+                ? rawData[a].first < rawData[b].first
+                : rawData[a].second < rawData[b].second;
+            });
 
         sortedData.reserve(rawData.size());
         if (hasCategories) {
@@ -514,7 +519,8 @@ QVariant prepareData(
     NormalizationType normalization,
     const QString& selectedDimensionX,
     const QString& selectedDimensionY,
-    const QString& titleText
+    const QString& titleText,
+    const QString& sortAxisValue
 )
 {
     qDebug() << "prepareData: called";
@@ -543,7 +549,7 @@ QVariant prepareData(
     // Sort by X, keeping optional categoryValues in sync if they exist
     QVector<QPair<float, float>> sortedData;
     QVector<QPair<QString, QColor>> sortedCategories;
-    sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories);
+    sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories, sortAxisValue);
     if (!sortedData.isEmpty()) {
         qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
     }

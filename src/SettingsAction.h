@@ -38,6 +38,7 @@
 #include <actions/HorizontalToolbarAction.h>
 #include <actions/VerticalToolbarAction.h>
 #include "QStatusBar"
+#include <./actions/ToggleAction.h>
 
 using namespace mv::gui;
 class QMenu;
@@ -71,8 +72,7 @@ public:
         const DatasetPickerAction& getColorDatasetAction() const { return _colorDatasetAction; }
         DatasetPickerAction& getColorDatasetAction() { return _colorDatasetAction; }
 
-        const ColorMap1DAction& getPointDatasetDimensionColorMapAction() const { return _pointDatasetDimensionColorMapAction; }
-        ColorMap1DAction& getPointDatasetDimensionColorMapAction() { return _pointDatasetDimensionColorMapAction; }
+        
 
     protected:
         SettingsAction&         _settingsOptions;
@@ -81,7 +81,7 @@ public:
         DimensionPickerAction   _colorPointDatasetDimensionAction;
         DimensionPickerAction   _dataDimensionXSelectionAction;
         DimensionPickerAction   _dataDimensionYSelectionAction;
-        ColorMap1DAction        _pointDatasetDimensionColorMapAction;
+        
 
     };
 
@@ -101,6 +101,12 @@ public:
 
         const StringAction& getChartTitleAction() const { return _chartTitleAction; }
         StringAction& getChartTitleAction() { return _chartTitleAction; }
+        const ToggleAction& getSwitchAxesAction() const { return _switchAxesAction; }
+        ToggleAction& getSwitchAxesAction() { return _switchAxesAction; }
+        const ColorMap1DAction& getPointDatasetDimensionColorMapAction() const { return _pointDatasetDimensionColorMapAction; }
+        ColorMap1DAction& getPointDatasetDimensionColorMapAction() { return _pointDatasetDimensionColorMapAction; }
+        const OptionAction& getSortByAxisAction() const { return _sortByAxisAction; }
+        OptionAction& getSortByAxisAction() { return _sortByAxisAction; }
 
     protected:
         SettingsAction& _settingsOptions;
@@ -109,6 +115,9 @@ public:
         OptionAction    _normalizationTypeAction;
         IntegralAction    _smoothingWindowAction;
         StringAction    _chartTitleAction;
+        ToggleAction _switchAxesAction;
+        ColorMap1DAction        _pointDatasetDimensionColorMapAction;
+        OptionAction        _sortByAxisAction;
     };
 
 public:
@@ -128,6 +137,7 @@ protected:
     mv::CoreInterface* _core;
     DatasetOptionsHolder _datasetOptionsHolder;
     ChartOptionsHolder _chartOptionsHolder;
+    
 
     friend class ChannelAction;
 };

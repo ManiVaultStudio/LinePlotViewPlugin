@@ -205,7 +205,11 @@ void LinePlotViewPlugin::init()
         };
     connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetAction(), &DatasetPickerAction::currentIndexChanged, this, pointDatasetChanged);
 
+    const auto switchAxesChanged = [this]() {updateChartTrigger(); };
+    connect(&_settingsAction.getChartOptionsHolder().getSwitchAxesAction(), &ToggleAction::toggled, this, switchAxesChanged);
 
+    const auto sortAxesChanged = [this]() {updateChartTrigger(); };
+    connect(&_settingsAction.getChartOptionsHolder().getSortByAxisAction(), &OptionAction::currentIndexChanged, this, sortAxesChanged);
 
     connect(&_settingsAction.getDatasetOptionsHolder().getColorDatasetAction(),
         &DatasetPickerAction::currentIndexChanged,
@@ -222,13 +226,13 @@ void LinePlotViewPlugin::init()
         {
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(colorDataset); 
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setEnabled(true);
-            _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().setEnabled(true);
+            _settingsAction.getChartOptionsHolder().getPointDatasetDimensionColorMapAction().setEnabled(true);
         }
         else
         {
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setPointsDataset(Dataset<Points>());
             _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().setDisabled(true);
-            _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().setDisabled(true);
+            _settingsAction.getChartOptionsHolder().getPointDatasetDimensionColorMapAction().setDisabled(true);
         }
 
         updateChartTrigger();
@@ -246,7 +250,7 @@ void LinePlotViewPlugin::init()
         updateChartTrigger();
         });
 
-    connect(&_settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction(),
+    connect(&_settingsAction.getChartOptionsHolder().getPointDatasetDimensionColorMapAction(),
         &ColorMap1DAction::imageChanged,
         this,
         [this]() {
@@ -426,7 +430,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         if (colorDataset->getDataType() == PointType)
         {
             colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
-            colormapselectedVal = _settingsAction.getDatasetOptionsHolder().getPointDatasetDimensionColorMapAction().getColorMap();
+            colormapselectedVal = _settingsAction.getChartOptionsHolder().getPointDatasetDimensionColorMapAction().getColorMap();
         }
         extractLinePlotData(
             _currentDataSet,
@@ -438,6 +442,13 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             coordvalues,
             categoryValues
         );
+
+        if (_settingsAction.getChartOptionsHolder().getSwitchAxesAction().isChecked()) {
+            for (int i = 0; i + 1 < coordvalues.size(); i += 2) {
+                std::swap(coordvalues[i], coordvalues[i + 1]);
+            }
+            std::swap(selectedDimensionX, selectedDimensionY);
+        }
 
         SmoothingType smoothing = SmoothingType::None;
         const QString smoothingText = _settingsAction.getChartOptionsHolder().getSmoothingTypeAction().getCurrentText();
@@ -494,6 +505,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         }
 
         QString titleText = _settingsAction.getChartOptionsHolder().getChartTitleAction().getString();
+        QString sortAxisValue = _settingsAction.getChartOptionsHolder().getSortByAxisAction().getCurrentText();
 
         root = ::prepareData(
             coordvalues,
@@ -503,7 +515,8 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             normalization,
             selectedDimensionX,
             selectedDimensionY,
-            titleText
+            titleText,
+            sortAxisValue
         );
     }
 

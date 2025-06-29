@@ -127,7 +127,7 @@ inline SettingsAction::DatasetOptionsHolder::DatasetOptionsHolder(SettingsAction
 inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& settingsAction) :
     VerticalGroupAction(&settingsAction, "Chart Options"),
     _settingsOptions(settingsAction),
-    _smoothingTypeAction(this, "Snoothing Type"),
+    _smoothingTypeAction(this, "Smoothing Type"),
     _normalizationTypeAction(this, "Normalization Type"),
     _smoothingWindowAction(this, "Smoothing Window"),
     _chartTitleAction(this, "Chart Title"),

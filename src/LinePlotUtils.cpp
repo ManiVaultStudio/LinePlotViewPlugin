@@ -542,30 +542,30 @@ QVariant prepareData(
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
     }
     //qDebug() << "prepareData: rawData.size() =" << rawData.size();
-    if (!rawData.isEmpty()) {
-        qInfo() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
-    }
+    //if (!rawData.isEmpty()) {
+       // qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
+    //}
 
     // Sort by X, keeping optional categoryValues in sync if they exist
     QVector<QPair<float, float>> sortedData;
     QVector<QPair<QString, QColor>> sortedCategories;
     sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories, sortAxisValue);
-    if (!sortedData.isEmpty()) {
-        qInfo() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
-    }
+    //if (!sortedData.isEmpty()) {
+        //qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
+    //}
 
     // Apply normalization BEFORE smoothing
     //qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
     QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
-    if (!normalizedData.isEmpty()) {
-        qInfo() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
-    }
+    //if (!normalizedData.isEmpty()) {
+        //qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
+    //}
 
     // Calculate statLine
     QVariantMap statLine = calculateStatLine(normalizedData);
-    if (!statLine.isEmpty()) {
-        qInfo() << "prepareData: statLine =" << statLine;
-    }
+    //if (!statLine.isEmpty()) {
+        //qDebug() << "prepareData: statLine =" << statLine;
+    //}
 
     // Apply smoothing to normalized data
     //qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
@@ -601,7 +601,7 @@ QVariant prepareData(
         break;
     }
     if (!smoothedData.isEmpty()) {
-        qInfo() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
+        //qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
     }
 
     // Convert back to QVariantList with optional categories

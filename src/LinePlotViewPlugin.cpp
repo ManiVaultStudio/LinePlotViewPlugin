@@ -369,7 +369,7 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
     //qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
     if (!datasets.first().isValid()) {
         _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentIndex(-1);
-        qDebug() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
+        qInfo() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
         return;
     }
     else
@@ -385,7 +385,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     QVariant root;
     if (!_currentDataSet.isValid())
     {
-        qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
+        qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
     }
     else
     {
@@ -395,10 +395,10 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         const auto numDimensions = _currentDataSet->getNumDimensions();
         const auto dimensionNames = _currentDataSet->getDimensionNames();
 
-        qDebug() << "dataConvertChartUpdate: numPoints =" << numPoints << " numDimensions =" << numDimensions;
+        //qDebug() << "dataConvertChartUpdate: numPoints =" << numPoints << " numDimensions =" << numDimensions;
         auto selectedDimensionX = _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().getCurrentDimensionName();
         auto selectedDimensionY = _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().getCurrentDimensionName();
-        qDebug() << "dataConvertChartUpdate: selectedDimensionX =" << selectedDimensionX << " selectedDimensionY =" << selectedDimensionY;
+        //qDebug() << "dataConvertChartUpdate: selectedDimensionX =" << selectedDimensionX << " selectedDimensionY =" << selectedDimensionY;
 
         int dimensionXIndex = -1;
         int dimensionYIndex = -1;
@@ -413,10 +413,10 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
                 dimensionYIndex = i;
             }
         }
-        qDebug() << "dataConvertChartUpdate: dimensionXIndex =" << dimensionXIndex << " dimensionYIndex =" << dimensionYIndex;
+        //qDebug() << "dataConvertChartUpdate: dimensionXIndex =" << dimensionXIndex << " dimensionYIndex =" << dimensionYIndex;
 
         if (dimensionXIndex == -1 || dimensionYIndex == -1) {
-            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
+            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
             return;
         }
 
@@ -480,7 +480,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             smoothing = SmoothingType::RunningMedian;
         }
         else {
-            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
+            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
             smoothing = SmoothingType::None;
         }
 
@@ -500,7 +500,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             normalization = NormalizationType::DecimalScaling;
         }
         else {
-            qDebug() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
+            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
             normalization = NormalizationType::None;
         }
 

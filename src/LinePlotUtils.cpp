@@ -523,13 +523,13 @@ QVariant prepareData(
     const QString& sortAxisValue
 )
 {
-    qDebug() << "prepareData: called";
-    qDebug() << "  coordvalues.size() =" << coordvalues.size();
-    qDebug() << "  categoryValues.size() =" << categoryValues.size();
-    qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
+    //qDebug() << "prepareData: called";
+    //qDebug() << "  coordvalues.size() =" << coordvalues.size();
+    //qDebug() << "  categoryValues.size() =" << categoryValues.size();
+    //qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
 
     if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
-        qDebug() << "prepareData: Invalid input data";
+        qInfo() << "prepareData: Invalid input data";
         return QVariant();
     }
 
@@ -541,9 +541,9 @@ QVariant prepareData(
     for (int i = 0; i < coordvalues.size(); i += 2) {
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
     }
-    qDebug() << "prepareData: rawData.size() =" << rawData.size();
+    //qDebug() << "prepareData: rawData.size() =" << rawData.size();
     if (!rawData.isEmpty()) {
-        qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
+        qInfo() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
     }
 
     // Sort by X, keeping optional categoryValues in sync if they exist
@@ -551,24 +551,24 @@ QVariant prepareData(
     QVector<QPair<QString, QColor>> sortedCategories;
     sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories, sortAxisValue);
     if (!sortedData.isEmpty()) {
-        qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
+        qInfo() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
     }
 
     // Apply normalization BEFORE smoothing
-    qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
+    //qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
     QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
     if (!normalizedData.isEmpty()) {
-        qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
+        qInfo() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
     }
 
     // Calculate statLine
     QVariantMap statLine = calculateStatLine(normalizedData);
     if (!statLine.isEmpty()) {
-        qDebug() << "prepareData: statLine =" << statLine;
+        qInfo() << "prepareData: statLine =" << statLine;
     }
 
     // Apply smoothing to normalized data
-    qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
+    //qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
     QVector<QPair<float, float>> smoothedData;
     switch (smoothing) {
     case SmoothingType::MovingAverage:
@@ -601,12 +601,12 @@ QVariant prepareData(
         break;
     }
     if (!smoothedData.isEmpty()) {
-        qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
+        qInfo() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
     }
 
     // Convert back to QVariantList with optional categories
     QVariantList payload = buildPayload(smoothedData, sortedCategories);
-    qDebug() << "prepareData: payload.size() =" << payload.size();
+   // qDebug() << "prepareData: payload.size() =" << payload.size();
 
     QVariantMap root;
     root["data"] = payload;
@@ -622,7 +622,7 @@ QVariant prepareData(
     root["xAxisName"] = selectedDimensionX;
     root["yAxisName"] = selectedDimensionY;
 
-    qDebug() << "prepareData: root keys =" << root.keys();
+    //qDebug() << "prepareData: root keys =" << root.keys();
 
     return root;
 }
@@ -707,7 +707,7 @@ void extractLinePlotData(
             }
             else
             {
-                qDebug() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
+                qInfo() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
             }
         }
         else if (colorDataset->getDataType() == PointType) {
@@ -741,23 +741,23 @@ void extractLinePlotData(
                     }
                     else
                     {
-                        qDebug() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
+                        qInfo() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
                     }
                 }
                 else
                 {
-                    qDebug() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
+                    qInfo() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
                 }
             }
             else
             {
-                qDebug() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
+                qInfo() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
             }
 
 
         } 
         else {
-            qDebug() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
+            qInfo() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
         }
 
     

@@ -406,11 +406,13 @@ void sortDataAndCategories(
     const QVector<QPair<float, float>>& rawData,
     const QVector<QPair<QString, QColor>>& categoryValues,
     QVector<QPair<float, float>>& sortedData,
-    QVector<QPair<QString, QColor>>& sortedCategories)
+    QVector<QPair<QString, QColor>>& sortedCategories,
+    QString axis = "X")
 {
     bool alreadySorted = true;
     for (int i = 1; i < rawData.size(); ++i) {
-        if (rawData[i - 1].first > rawData[i].first) {
+        if ((axis == "X" && rawData[i - 1].first > rawData[i].first) ||
+            (axis == "Y" && rawData[i - 1].second > rawData[i].second)) {
             alreadySorted = false;
             break;
         }
@@ -422,12 +424,15 @@ void sortDataAndCategories(
         if (hasCategories) {
             sortedCategories = categoryValues;
         }
-    } else {
+    }
+    else {
         QVector<int> indices(rawData.size());
         std::iota(indices.begin(), indices.end(), 0);
         std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-            return rawData[a].first < rawData[b].first;
-        });
+            return (axis =="X")
+                ? rawData[a].first < rawData[b].first
+                : rawData[a].second < rawData[b].second;
+            });
 
         sortedData.reserve(rawData.size());
         if (hasCategories) {
@@ -514,16 +519,17 @@ QVariant prepareData(
     NormalizationType normalization,
     const QString& selectedDimensionX,
     const QString& selectedDimensionY,
-    const QString& titleText
+    const QString& titleText,
+    const QString& sortAxisValue
 )
 {
-    qDebug() << "prepareData: called";
-    qDebug() << "  coordvalues.size() =" << coordvalues.size();
-    qDebug() << "  categoryValues.size() =" << categoryValues.size();
-    qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
+    //qDebug() << "prepareData: called";
+    //qDebug() << "  coordvalues.size() =" << coordvalues.size();
+    //qDebug() << "  categoryValues.size() =" << categoryValues.size();
+    //qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
 
     if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
-        qDebug() << "prepareData: Invalid input data";
+        qInfo() << "prepareData: Invalid input data";
         return QVariant();
     }
 
@@ -535,34 +541,34 @@ QVariant prepareData(
     for (int i = 0; i < coordvalues.size(); i += 2) {
         rawData.append({ coordvalues[i], coordvalues[i + 1] });
     }
-    qDebug() << "prepareData: rawData.size() =" << rawData.size();
-    if (!rawData.isEmpty()) {
-        qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
-    }
+    //qDebug() << "prepareData: rawData.size() =" << rawData.size();
+    //if (!rawData.isEmpty()) {
+       // qDebug() << "prepareData: rawData sample:" << rawData.first() << (rawData.size() > 1 ? rawData[1] : QPair<float,float>());
+    //}
 
     // Sort by X, keeping optional categoryValues in sync if they exist
     QVector<QPair<float, float>> sortedData;
     QVector<QPair<QString, QColor>> sortedCategories;
-    sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories);
-    if (!sortedData.isEmpty()) {
-        qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
-    }
+    sortDataAndCategories(rawData, categoryValues, sortedData, sortedCategories, sortAxisValue);
+    //if (!sortedData.isEmpty()) {
+        //qDebug() << "prepareData: sortedData sample:" << sortedData.first() << (sortedData.size() > 1 ? sortedData[1] : QPair<float,float>());
+    //}
 
     // Apply normalization BEFORE smoothing
-    qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
+    //qDebug() << "prepareData: applying normalization type =" << static_cast<int>(normalization);
     QVector<QPair<float, float>> normalizedData = applyNormalization(sortedData, normalization);
-    if (!normalizedData.isEmpty()) {
-        qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
-    }
+    //if (!normalizedData.isEmpty()) {
+        //qDebug() << "prepareData: normalizedData sample:" << normalizedData.first() << (normalizedData.size() > 1 ? normalizedData[1] : QPair<float,float>());
+    //}
 
     // Calculate statLine
     QVariantMap statLine = calculateStatLine(normalizedData);
-    if (!statLine.isEmpty()) {
-        qDebug() << "prepareData: statLine =" << statLine;
-    }
+    //if (!statLine.isEmpty()) {
+        //qDebug() << "prepareData: statLine =" << statLine;
+    //}
 
     // Apply smoothing to normalized data
-    qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
+    //qDebug() << "prepareData: applying smoothing type =" << static_cast<int>(smoothing) << " param =" << smoothingParam;
     QVector<QPair<float, float>> smoothedData;
     switch (smoothing) {
     case SmoothingType::MovingAverage:
@@ -595,12 +601,12 @@ QVariant prepareData(
         break;
     }
     if (!smoothedData.isEmpty()) {
-        qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
+        //qDebug() << "prepareData: smoothedData sample:" << smoothedData.first() << (smoothedData.size() > 1 ? smoothedData[1] : QPair<float,float>());
     }
 
     // Convert back to QVariantList with optional categories
     QVariantList payload = buildPayload(smoothedData, sortedCategories);
-    qDebug() << "prepareData: payload.size() =" << payload.size();
+   // qDebug() << "prepareData: payload.size() =" << payload.size();
 
     QVariantMap root;
     root["data"] = payload;
@@ -616,7 +622,7 @@ QVariant prepareData(
     root["xAxisName"] = selectedDimensionX;
     root["yAxisName"] = selectedDimensionY;
 
-    qDebug() << "prepareData: root keys =" << root.keys();
+    //qDebug() << "prepareData: root keys =" << root.keys();
 
     return root;
 }
@@ -701,7 +707,7 @@ void extractLinePlotData(
             }
             else
             {
-                qDebug() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
+                qInfo() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
             }
         }
         else if (colorDataset->getDataType() == PointType) {
@@ -735,23 +741,23 @@ void extractLinePlotData(
                     }
                     else
                     {
-                        qDebug() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
+                        qInfo() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
                     }
                 }
                 else
                 {
-                    qDebug() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
+                    qInfo() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
                 }
             }
             else
             {
-                qDebug() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
+                qInfo() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
             }
 
 
         } 
         else {
-            qDebug() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
+            qInfo() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
         }
 
     

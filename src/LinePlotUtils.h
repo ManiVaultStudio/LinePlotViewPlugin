@@ -88,7 +88,8 @@ QVariant prepareData(
     NormalizationType normalization,
     const QString& selectedDimensionX,
     const QString& selectedDimensionY,
-    const QString& titleText
+    const QString& titleText,
+    const QString& sortAxisValue
 );
 
 // Utility to extract coordvalues and categoryValues from dataset and cluster info

@@ -573,7 +573,7 @@ QVariant prepareData(
     //qDebug() << "  smoothing =" << static_cast<int>(smoothing) << " smoothingParam =" << smoothingParam << " normalization =" << static_cast<int>(normalization);
 
     if (coordvalues.isEmpty() || coordvalues.size() % 2 != 0) {
-        qInfo() << "prepareData: Invalid input data";
+        qCritical() << "prepareData: Invalid input data";
         return QVariant();
     }
 
@@ -751,7 +751,7 @@ void extractLinePlotData(
             }
             else
             {
-                qInfo() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
+                qCritical() << "extractLinePlotData: Invalid cluster dataset:" << colorDatasetID;
             }
         }
         else if (colorDataset->getDataType() == PointType) {
@@ -785,23 +785,23 @@ void extractLinePlotData(
                     }
                     else
                     {
-                        qInfo() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
+                        qCritical() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
                     }
                 }
                 else
                 {
-                    qInfo() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
+                    qCritical() << "extractLinePlotData: No points in dataset:" << colorDatasetID;
                 }
             }
             else
             {
-                qInfo() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
+                qCritical() << "extractLinePlotData: Invalid point dataset:" << colorDatasetID;
             }
 
 
         } 
         else {
-            qInfo() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
+            qCritical() << "extractLinePlotData: Unsupported color dataset type:" << colorDataset->getDataType().getTypeString();
         }
 
     

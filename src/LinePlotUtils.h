@@ -15,6 +15,7 @@
 #include "PointData/PointData.h"
 #include "ClusterData/ClusterData.h"
 #include "LinePlotViewPlugin.h" // for NormalizationType, SmoothingType
+#include  "ColorUtils.h" // for QColor utilities
 
 using namespace mv;
 
@@ -27,29 +28,7 @@ private:
     QString _functionName;
     QElapsedTimer _timer;
 };
-enum class ColormapTypeValue {
-    BlackWhite,
-    RdYlBu,
-    Qualitative10,
-    YlGn,
-    RdYlGn,
-    GnBu,
-    YlGnBu,
-    Spectral,
-    BrBg,
-    YlOrBr,
-    RdBu,
-    RdPu,
-    Plasma,
-    PuOr,
-    BuPu,
-    Reds,
-    Viridis,
-    Q_BiGrRd,
-    Magma,
-    PiYG,
-    Constant
-};
+
 // Normalization and smoothing utilities
 QVector<QPair<float, float>> applyNormalization(
     const QVector<QPair<float, float>>& data,

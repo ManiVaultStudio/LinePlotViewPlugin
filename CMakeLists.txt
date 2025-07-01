@@ -41,6 +41,8 @@ set(PLUGIN_SOURCES
     src/SettingsAction.cpp
     src/LinePlotUtils.h
     src/LinePlotUtils.cpp
+	src/ColorUtils.cpp
+	src/ColorUtils.h
     PluginInfo.json
 )
 

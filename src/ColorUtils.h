@@ -39,3 +39,4 @@ enum class ColormapTypeValue {
  * @return QColor Corresponding color.
  */
 QColor getColorFromColormap(float t, ColormapTypeValue type, float minVal, float maxVal);
+ColormapTypeValue getColorMapFromString(const QString& colormapselectedVal);

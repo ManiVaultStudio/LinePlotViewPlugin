@@ -1,6 +1,7 @@
 #include <array>
 #include <algorithm>
 #include "ColorUtils.h"
+#include <QHash>
 // --- Colormap definitions ---
 
 static const std::array<QColor, 10> kQualitative10 = {
@@ -110,6 +111,33 @@ static const std::array<QColor, 11> kPiYG = {
     QColor("#fde0ef"), QColor("#f7f7f7"), QColor("#e6f5d0"), QColor("#b8e186"),
     QColor("#7fbc41"), QColor("#4d9221"), QColor("#276419")
 };
+
+ColormapTypeValue getColorMapFromString(const QString& colormapselectedVal)
+{
+    static const QHash<QString, ColormapTypeValue> colormapMap = {
+        { "Black to white", ColormapTypeValue::BlackWhite },
+        { "RdYlBu",         ColormapTypeValue::RdYlBu },
+        { "qualitative",    ColormapTypeValue::Qualitative10 },
+        { "YlGn",           ColormapTypeValue::YlGn },
+        { "RdYlGn",         ColormapTypeValue::RdYlGn },
+        { "GnBu",           ColormapTypeValue::GnBu },
+        { "YlGnBu",         ColormapTypeValue::YlGnBu },
+        { "Spectral",       ColormapTypeValue::Spectral },
+        { "BrBG",           ColormapTypeValue::BrBg },
+        { "YlOrBr",         ColormapTypeValue::YlOrBr },
+        { "RdBu",           ColormapTypeValue::RdBu },
+        { "RdPu",           ColormapTypeValue::RdPu },
+        { "Plasma",         ColormapTypeValue::Plasma },
+        { "PuOr",           ColormapTypeValue::PuOr },
+        { "BuPu",           ColormapTypeValue::BuPu },
+        { "Reds",           ColormapTypeValue::Reds },
+        { "Viridis",        ColormapTypeValue::Viridis },
+        { "Q_BlGrRd",       ColormapTypeValue::Q_BiGrRd },
+        { "Magma",          ColormapTypeValue::Magma },
+        { "PiYG",           ColormapTypeValue::PiYG }
+    };
+    return colormapMap.value(colormapselectedVal, ColormapTypeValue::Constant);
+}
 
 // --- Colormap lookup function ---
 

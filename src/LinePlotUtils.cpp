@@ -502,32 +502,7 @@ QVariant prepareData(
     return root;
 }
 
-ColormapTypeValue getColorMapFromString(const QString& colormapselectedVal)
-{
-    static const QHash<QString, ColormapTypeValue> colormapMap = {
-        { "Black to white", ColormapTypeValue::BlackWhite },
-        { "RdYlBu",         ColormapTypeValue::RdYlBu },
-        { "qualitative",    ColormapTypeValue::Qualitative10 },
-        { "YlGn",           ColormapTypeValue::YlGn },
-        { "RdYlGn",         ColormapTypeValue::RdYlGn },
-        { "GnBu",           ColormapTypeValue::GnBu },
-        { "YlGnBu",         ColormapTypeValue::YlGnBu },
-        { "Spectral",       ColormapTypeValue::Spectral },
-        { "BrBG",           ColormapTypeValue::BrBg },
-        { "YlOrBr",         ColormapTypeValue::YlOrBr },
-        { "RdBu",           ColormapTypeValue::RdBu },
-        { "RdPu",           ColormapTypeValue::RdPu },
-        { "Plasma",         ColormapTypeValue::Plasma },
-        { "PuOr",           ColormapTypeValue::PuOr },
-        { "BuPu",           ColormapTypeValue::BuPu },
-        { "Reds",           ColormapTypeValue::Reds },
-        { "Viridis",        ColormapTypeValue::Viridis },
-        { "Q_BlGrRd",       ColormapTypeValue::Q_BiGrRd },
-        { "Magma",          ColormapTypeValue::Magma },
-        { "PiYG",           ColormapTypeValue::PiYG }
-    };
-    return colormapMap.value(colormapselectedVal, ColormapTypeValue::Constant);
-}
+
 
 void extractLinePlotData(
     const mv::Dataset<Points>& currentDataSet,

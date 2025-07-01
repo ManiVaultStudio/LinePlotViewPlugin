@@ -369,7 +369,7 @@ void LinePlotViewPlugin::loadData(const mv::Datasets& datasets)
     //qDebug() << "LinePlotViewPlugin::loadData: Load data set from ManiVault core";
     if (!datasets.first().isValid()) {
         _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().setCurrentIndex(-1);
-        qInfo() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
+        qCritical() << "LinePlotViewPlugin::loadData: Invalid dataset provided";
         return;
     }
     else
@@ -385,11 +385,11 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     QVariant root;
     if (!_currentDataSet.isValid())
     {
-        qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
+        qCritical() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
     }
     else
     {
-        FunctionTimer timer(Q_FUNC_INFO);
+        //FunctionTimer timer(Q_FUNC_INFO);
 
         const auto numPoints = _currentDataSet->getNumPoints();
         const auto numDimensions = _currentDataSet->getNumDimensions();
@@ -416,7 +416,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         //qDebug() << "dataConvertChartUpdate: dimensionXIndex =" << dimensionXIndex << " dimensionYIndex =" << dimensionYIndex;
 
         if (dimensionXIndex == -1 || dimensionYIndex == -1) {
-            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
+            qCritical() << "LinePlotViewPlugin::convertDataAndUpdateChart: Selected dimensions not found in dataset";
             return;
         }
 
@@ -480,7 +480,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             smoothing = SmoothingType::RunningMedian;
         }
         else {
-            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
+            qCritical() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown smoothing type, defaulting to None";
             smoothing = SmoothingType::None;
         }
 
@@ -500,7 +500,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             normalization = NormalizationType::DecimalScaling;
         }
         else {
-            qInfo() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
+            qCritical() << "LinePlotViewPlugin::convertDataAndUpdateChart: Unknown normalization type, defaulting to None";
             normalization = NormalizationType::None;
         }
 
@@ -533,7 +533,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
 /*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
 {
-     FunctionTimer timer(Q_FUNC_INFO);
+     //FunctionTimer timer(Q_FUNC_INFO);
     auto selectionSet = _currentDataSet->getSelection<Points>();
     auto& selectionIndices = selectionSet->indices;
 

@@ -12,15 +12,59 @@
 
 using namespace mv;
 
+void customMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
+{
+    QByteArray localMsg = msg.toLocal8Bit();
+    const char* colorCode = "\033[0m"; // Default
+
+    switch (type) {
+    case QtDebugMsg:
+        colorCode = "\033[1;36m"; // Cyan
+        break;
+    case QtInfoMsg:
+        colorCode = "\033[1;32m"; // Green
+        break;
+    case QtWarningMsg:
+        colorCode = "\033[1;33m"; // Yellow
+        break;
+    case QtCriticalMsg:
+        colorCode = "\033[1;31m"; // Red
+        break;
+    case QtFatalMsg:
+        colorCode = "\033[1;41m"; // Red background
+        break;
+    }
+
+    fprintf(stderr, "%s[%s] %s (%s:%u, %s)%s\n",
+        colorCode,
+        (type == QtDebugMsg ? "DEBUG" :
+            type == QtInfoMsg ? "INFO" :
+            type == QtWarningMsg ? "WARNING" :
+            type == QtCriticalMsg ? "CRITICAL" : "FATAL"),
+        localMsg.constData(),
+        context.file ? context.file : "",
+        context.line,
+        context.function ? context.function : "",
+        "\033[0m"); // Reset color
+
+    if (type == QtFatalMsg)
+        abort();
+}
+
+
 FunctionTimer::FunctionTimer(const QString& functionName)
     : _functionName(functionName)
 {
     _timer.start();
 }
+
 FunctionTimer::~FunctionTimer()
 {
-    qDebug() << _functionName << "took"
-             << _timer.elapsed() / 1000.0 << "seconds";
+    std::cout
+        << _functionName.toStdString()
+        << ":"
+        << QString::number(_timer.elapsed() / 1000.0, 'f', 3).toStdString()
+        << "sec";
 }
 
 static const std::array<QColor, 10> kQualitative10 = {
@@ -199,7 +243,7 @@ QVector<QPair<float, float>> applyNormalization(
 {
     if (type == NormalizationType::None) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     int n = data.size();
     QVector<QPair<float, float>> result;
     result.reserve(n);
@@ -261,7 +305,7 @@ QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float
     int n = data.size();
     if (windowSize < 1 || n < windowSize) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     float sumX = 0, sumY = 0;
@@ -283,7 +327,7 @@ QVector<QPair<float, float>> applySavitzkyGolay(const QVector<QPair<float, float
     QVector<QPair<float, float>> smoothed;
     if (data.size() < windowSize || windowSize % 2 == 0) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     int half = windowSize / 2;
     for (int i = half; i < data.size() - half; ++i) {
         float sumY = 0;
@@ -298,7 +342,7 @@ QVector<QPair<float, float>> applyGaussian(const QVector<QPair<float, float>>& d
     int n = data.size();
     if (n < windowSize || windowSize % 2 == 0) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     int half = windowSize / 2;
@@ -325,7 +369,7 @@ QVector<QPair<float, float>> applyExponentialMovingAverage(const QVector<QPair<f
     QVector<QPair<float, float>> smoothed;
     if (data.isEmpty()) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     float ema = data[0].second;
     for (const auto& point : data) {
         ema = alpha * point.second + (1 - alpha) * ema;
@@ -339,7 +383,7 @@ QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float
     int n = data.size();
     if (n < windowSize || windowSize % 2 == 0) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+   // FunctionTimer timer(Q_FUNC_INFO);
     smoothed.reserve(n - windowSize + 1);
 
     std::multiset<float> window;
@@ -358,7 +402,7 @@ QVector<QPair<float, float>> applyRunningMedian(const QVector<QPair<float, float
 }
 
 QVector<QPair<float, float>> applyLinearInterpolation(const QVector<QPair<float, float>>& data, int step) {
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     QVector<QPair<float, float>> interpolated;
     for (int i = 0; i < data.size() - step; i += step) {
         interpolated.append(data[i]);
@@ -374,7 +418,7 @@ QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<f
     QVector<QPair<float, float>> smoothed;
     if (data.size() < 3) return data;
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     smoothed.append(data.first());
     for (int i = 1; i < data.size() - 1; ++i) {
         float x = (data[i - 1].first + data[i].first + data[i + 1].first) / 3.0f;
@@ -386,7 +430,7 @@ QVector<QPair<float, float>> applyCubicSplineApproximation(const QVector<QPair<f
 }
 
 QVector<QPair<float, float>> applyMinMaxSampling(const QVector<QPair<float, float>>& data, int windowSize) {
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
     QVector<QPair<float, float>> result;
     for (int i = 0; i < data.size(); i += windowSize) {
         int end = std::min(i + windowSize, static_cast<int>(data.size()));
@@ -533,7 +577,7 @@ QVariant prepareData(
         return QVariant();
     }
 
-    FunctionTimer timer(Q_FUNC_INFO);
+    //FunctionTimer timer(Q_FUNC_INFO);
 
     // Convert flat coordvalues to point pairs
     QVector<QPair<float, float>> rawData;

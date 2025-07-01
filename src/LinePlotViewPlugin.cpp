@@ -389,7 +389,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     }
     else
     {
-        FunctionTimer timer(Q_FUNC_INFO);
+        //FunctionTimer timer(Q_FUNC_INFO);
 
         const auto numPoints = _currentDataSet->getNumPoints();
         const auto numDimensions = _currentDataSet->getNumDimensions();
@@ -533,7 +533,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
 
 /*void LinePlotViewPlugin::publishSelection(const std::vector<unsigned int>& selectedIDs)
 {
-     FunctionTimer timer(Q_FUNC_INFO);
+     //FunctionTimer timer(Q_FUNC_INFO);
     auto selectionSet = _currentDataSet->getSelection<Points>();
     auto& selectionIndices = selectionSet->indices;
 

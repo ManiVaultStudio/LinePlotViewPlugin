@@ -169,6 +169,7 @@ void LinePlotViewPlugin::init()
                         clusterDatasets.push_back(other);
                     }
                 }
+                clusterDatasets.push_back(parent);
             }
             
             _settingsAction.getChartOptionsHolder().getSmoothingWindowAction().setMaximum(_currentDataSet->getNumPoints()/2);

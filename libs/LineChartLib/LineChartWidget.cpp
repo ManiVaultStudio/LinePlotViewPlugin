@@ -142,9 +142,15 @@ void LineChartWidget::paintEvent(QPaintEvent*)
 
     // Draw title
     if (!m_title.isEmpty()) {
-        p.setFont(QFont("sans", 16, QFont::Bold));
+        QFont titleFont("sans", 16, QFont::Bold);
+        p.setFont(titleFont);
         p.setPen(QColor("#222"));
-        p.drawText(QRectF(0, 0, width(), 40), Qt::AlignHCenter | Qt::AlignVCenter, m_title);
+
+        // Use the plot area width for the title, and elide if needed
+        QRectF titleRect(m_plotArea.left(), 0, m_plotArea.width(), 40);
+        QFontMetrics fm(titleFont);
+        QString elidedTitle = fm.elidedText(m_title, Qt::ElideRight, static_cast<int>(m_plotArea.width()) - 8);
+        p.drawText(titleRect, Qt::AlignHCenter | Qt::AlignVCenter, elidedTitle);
     }
 
     // Draw axes

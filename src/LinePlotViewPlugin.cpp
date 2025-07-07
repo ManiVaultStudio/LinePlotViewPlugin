@@ -5,7 +5,7 @@
 #include "LinePlotUtils.h"
 
 #include <DatasetsMimeData.h>
-
+#include <QApplication> 
 #include <vector>
 #include <random>
 #include <algorithm>
@@ -34,6 +34,7 @@ LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
 
 void LinePlotViewPlugin::init()
 {
+    qApp->setStyleSheet("QToolTip { color: black; background: #ffffe1; border: 1px solid black; }");
     getWidget().setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
     auto layout = new QVBoxLayout();

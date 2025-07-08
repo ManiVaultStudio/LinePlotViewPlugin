@@ -19,7 +19,7 @@ class LinePlotViewPluginConan(ConanFile):
     name = "LinePlotViewPlugin"
     description = """Plugins for displaying LinePlotView in ManiVaultStudio."""
     topics = ("hdps", "plugin", "image data", "loading")
-    url = "https://github.com/ManiVaultStudio/LinePlotView"
+    url = "https://github.com/ManiVaultStudio/LinePlotViewPlugin"
     author = "B. van Lew b.van_lew@lumc.nl"  # conan recipe author
     license = "MIT"
 
@@ -35,7 +35,7 @@ class LinePlotViewPluginConan(ConanFile):
 
     scm = {
         "type": "git",
-        "subfolder": "hdps/LinePlotView",
+        "subfolder": "hdps/LinePlotViewPlugin",
         "url": "auto",
         "revision": "auto",
     }
@@ -108,7 +108,7 @@ class LinePlotViewPluginConan(ConanFile):
 
     def _configure_cmake(self):
         cmake = CMake(self)
-        cmake.configure(build_script_folder="hdps/LinePlotView")
+        cmake.configure(build_script_folder="hdps/LinePlotViewPlugin")
         cmake.verbose = True
         return cmake
 

@@ -4,7 +4,7 @@
 #include <QToolTip>
 #include <algorithm>
 #include <cmath>
-
+#include <QPainterPath>
 LineChartWidget::LineChartWidget(QWidget* parent)
     : QWidget(parent)
 {
@@ -68,6 +68,14 @@ void LineChartWidget::setData(const QVariantMap& root)
         else
             lineColor = QColor(colorVar.toString());
     }
+    m_originalPoints.clear();
+    QVariantList origList = root.value("original").toList();
+    for (const QVariant& v : origList) {
+        QVariantMap m = v.toMap();
+        float x = m.value("x").toFloat();
+        float y = m.value("y").toFloat();
+        m_originalPoints.append({ x, y });
+    }
     setData(points, categories, statLine, title, lineColor);
 }
 
@@ -82,26 +90,47 @@ void LineChartWidget::updatePlotArea()
     int l = 60, r = 30, t = 60, b = 40;
     m_plotArea = QRectF(l, t, width() - l - r, height() - t - b);
 
-    // Compute data bounds
-    if (m_points.size() < 2) {
+    // Compute data bounds using both smoothed and original data
+    if (m_points.size() < 2 && m_originalPoints.size() < 2) {
         m_xMin = m_xMax = m_yMin = m_yMax = 0;
         return;
     }
-    m_xMin = m_xMax = m_points[0].first;
-    m_yMin = m_yMax = m_points[0].second;
-    for (const auto& pt : m_points) {
-        m_xMin = std::min(m_xMin, (double)pt.first);
-        m_xMax = std::max(m_xMax, (double)pt.first);
-        m_yMin = std::min(m_yMin, (double)pt.second);
-        m_yMax = std::max(m_yMax, (double)pt.second);
+
+    // Start with smoothed data if available, else original
+    bool hasSmoothed = m_points.size() >= 2;
+    bool hasOriginal = m_originalPoints.size() >= 2;
+
+    double xMin = hasSmoothed ? m_points[0].first : m_originalPoints[0].first;
+    double xMax = xMin;
+    double yMin = hasSmoothed ? m_points[0].second : m_originalPoints[0].second;
+    double yMax = yMin;
+
+    if (hasSmoothed) {
+        for (const auto& pt : m_points) {
+            xMin = std::min(xMin, (double)pt.first);
+            xMax = std::max(xMax, (double)pt.first);
+            yMin = std::min(yMin, (double)pt.second);
+            yMax = std::max(yMax, (double)pt.second);
+        }
     }
+    if (hasOriginal) {
+        for (const auto& pt : m_originalPoints) {
+            xMin = std::min(xMin, (double)pt.first);
+            xMax = std::max(xMax, (double)pt.first);
+            yMin = std::min(yMin, (double)pt.second);
+            yMax = std::max(yMax, (double)pt.second);
+        }
+    }
+
     // Expand bounds a bit for aesthetics
-    double xPad = (m_xMax - m_xMin) * 0.05;
-    double yPad = (m_yMax - m_yMin) * 0.1;
+    double xPad = (xMax - xMin) * 0.05;
+    double yPad = (yMax - yMin) * 0.1;
     if (xPad == 0) xPad = 1.0;
     if (yPad == 0) yPad = 1.0;
-    m_xMin -= xPad; m_xMax += xPad;
-    m_yMin -= yPad; m_yMax += yPad;
+    m_xMin = xMin - xPad;
+    m_xMax = xMax + xPad;
+    m_yMin = yMin - yPad;
+    m_yMax = yMax + yPad;
 }
 
 QPointF LineChartWidget::dataToScreen(float x, float y) const
@@ -112,7 +141,20 @@ QPointF LineChartWidget::dataToScreen(float x, float y) const
     double sy = m_plotArea.bottom() - (y - m_yMin) / (m_yMax - m_yMin) * m_plotArea.height();
     return QPointF(sx, sy);
 }
-
+static float interpolateY(const QVector<QPair<float, float>>& data, float x) {
+    if (data.isEmpty()) return 0.0f;
+    if (x <= data.first().first) return data.first().second;
+    if (x >= data.last().first) return data.last().second;
+    for (int i = 1; i < data.size(); ++i) {
+        if (data[i].first >= x) {
+            float x0 = data[i - 1].first, y0 = data[i - 1].second;
+            float x1 = data[i].first, y1 = data[i].second;
+            float t = (x - x0) / (x1 - x0);
+            return y0 + t * (y1 - y0);
+        }
+    }
+    return data.last().second;
+}
 float LineChartWidget::screenToDataX(int px) const
 {
     return m_xMin + (px - m_plotArea.left()) / m_plotArea.width() * (m_xMax - m_xMin);
@@ -206,7 +248,47 @@ void LineChartWidget::paintEvent(QPaintEvent*)
             }
         }
     }
+    // === SMOOTH GREY AREA BETWEEN SMOOTHED AND ORIGINAL (ENVELOPE) ===
+    if (!m_points.isEmpty() && !m_originalPoints.isEmpty()) {
+        QVector<float> allX;
+        // Collect all unique X values from both lines
+        for (const auto& pt : m_points) allX.push_back(pt.first);
+        for (const auto& pt : m_originalPoints) allX.push_back(pt.first);
+        std::sort(allX.begin(), allX.end());
+        auto last = std::unique(allX.begin(), allX.end());
+        allX.erase(last, allX.end());
 
+        QPainterPath areaPath;
+        // Top edge: max(smoothed, original) at each X
+        bool first = true;
+        for (float x : allX) {
+            float ySmoothed = interpolateY(m_points, x);
+            float yOriginal = interpolateY(m_originalPoints, x);
+            float yHigh = std::max(ySmoothed, yOriginal);
+            QPointF pt = dataToScreen(x, yHigh);
+            if (first) {
+                areaPath.moveTo(pt);
+                first = false;
+            }
+            else {
+                areaPath.lineTo(pt);
+            }
+        }
+        // Bottom edge: min(smoothed, original) at each X (reverse order)
+        for (int i = allX.size() - 1; i >= 0; --i) {
+            float x = allX[i];
+            float ySmoothed = interpolateY(m_points, x);
+            float yOriginal = interpolateY(m_originalPoints, x);
+            float yLow = std::min(ySmoothed, yOriginal);
+            areaPath.lineTo(dataToScreen(x, yLow));
+        }
+        areaPath.closeSubpath();
+
+        QColor areaColor(200, 200, 200, 80); // Light grey, semi-transparent
+        p.setPen(Qt::NoPen);
+        p.setBrush(areaColor);
+        p.drawPath(areaPath);
+    }
     // === MAIN LINE (category colored segments) ===
     for (int i = 0; i < m_points.size() - 1; ++i) {
         QPointF p0 = dataToScreen(m_points[i].first, m_points[i].second);

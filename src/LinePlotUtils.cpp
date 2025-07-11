@@ -132,24 +132,21 @@ QVector<QPair<float, float>> applyNormalization(
 }
 
 QVector<QPair<float, float>> applyMovingAverage(const QVector<QPair<float, float>>& data, int windowSize) {
-    QVector<QPair<float, float>> smoothed;
     int n = data.size();
-    if (windowSize < 1 || n < windowSize) return data;
+    if (windowSize < 1 || n < 1) return data;
 
-    //FunctionTimer timer(Q_FUNC_INFO);
-    smoothed.reserve(n - windowSize + 1);
+    QVector<QPair<float, float>> smoothed;
+    smoothed.reserve(n);
 
-    float sumX = 0, sumY = 0;
-    for (int i = 0; i < windowSize; ++i) {
-        sumX += data[i].first;
-        sumY += data[i].second;
-    }
-    smoothed.append({ sumX / windowSize, sumY / windowSize });
-
-    for (int i = windowSize; i < n; ++i) {
-        sumX += data[i].first - data[i - windowSize].first;
-        sumY += data[i].second - data[i - windowSize].second;
-        smoothed.append({ sumX / windowSize, sumY / windowSize });
+    for (int i = 0; i < n; ++i) {
+        int start = std::max(0, i - windowSize / 2);
+        int end = std::min(n, i + windowSize / 2 + 1);
+        float sumY = 0;
+        for (int j = start; j < end; ++j) {
+            sumY += data[j].second;
+        }
+        float avgY = sumY / (end - start);
+        smoothed.append({ data[i].first, avgY });
     }
     return smoothed;
 }
@@ -482,9 +479,11 @@ QVariant prepareData(
     // Convert back to QVariantList with optional categories
     QVariantList payload = buildPayload(smoothedData, sortedCategories);
    // qDebug() << "prepareData: payload.size() =" << payload.size();
+    QVariantList fullPayload = buildPayload(normalizedData, sortedCategories);
 
     QVariantMap root;
     root["data"] = payload;
+    root["original"] = fullPayload;
     if (!statLine.isEmpty()) {
         root["statLine"] = statLine;
     }

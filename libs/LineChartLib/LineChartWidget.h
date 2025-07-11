@@ -35,7 +35,7 @@ private:
     QColor m_lineColor = QColor("#1f77b4");
     QString m_xAxisName = "X";
     QString m_yAxisName = "Y";
-
+    QVector<QPair<float, float>> m_originalPoints;
     QRectF m_plotArea;
     double m_xMin = 0, m_xMax = 0, m_yMin = 0, m_yMax = 0;
 

@@ -588,7 +588,7 @@ void extractLinePlotData(
                     }
                     else
                     {
-                        qCritical() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
+                        //qCritical() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
                     }
                 }
                 else

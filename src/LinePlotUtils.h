@@ -78,7 +78,9 @@ void extractLinePlotData(
     int dimensionYIndex,
     QString colorDatasetID,
     int colorPointDatasetDimensionIndex,
-    QString colormapSelectedVal,
+    QString colormapSelectedVal, 
+    float minValue,
+    float maxValue,
     QVector<float>& coordvalues,
     QVector<QPair<QString, QColor>>& categoryValues
 );

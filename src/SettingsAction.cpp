@@ -146,10 +146,10 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     addAction(&_normalizationTypeAction);
     addAction(&_chartTitleAction);
     addAction(&_pointDatasetDimensionColorMapAction);
-    addAction(&_upperColorLimitAction);
-    addAction(&_lowerColorLimitAction);
-    addAction(&_switchAxesAction);
-    addAction(&_sortByAxisAction);
+    //addAction(&_upperColorLimitAction);
+    //addAction(&_lowerColorLimitAction);
+    //addAction(&_switchAxesAction);
+    //addAction(&_sortByAxisAction);
 }
 
 void SettingsAction::fromVariantMap(const QVariantMap& variantMap)

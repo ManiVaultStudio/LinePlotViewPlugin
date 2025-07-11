@@ -132,6 +132,8 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     _smoothingWindowAction(this, "Smoothing Window"),
     _chartTitleAction(this, "Chart Title"),
     _pointDatasetDimensionColorMapAction(this, "Point Dataset Dimension Color Map"),
+    _lowerColorLimitAction(this, "Lower Color Limit"),
+    _upperColorLimitAction(this, "Upper Color Limit"),
     _switchAxesAction(this, "Switch Axes"),
     _sortByAxisAction(this, "Sort By Axis")
 {
@@ -144,6 +146,8 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     addAction(&_normalizationTypeAction);
     addAction(&_chartTitleAction);
     addAction(&_pointDatasetDimensionColorMapAction);
+    addAction(&_upperColorLimitAction);
+    addAction(&_lowerColorLimitAction);
     addAction(&_switchAxesAction);
     addAction(&_sortByAxisAction);
 }

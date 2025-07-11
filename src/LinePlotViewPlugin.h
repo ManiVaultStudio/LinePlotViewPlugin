@@ -114,6 +114,7 @@ private:
     QTimer  _colorDatasetDebounceTimer;
     QTimer  _colorPointDatasetDimensionDebounceTimer;
     QTimer  _colorPointDatasetColorMapDebounceTimer;
+    QTimer  _colorMapRangeDebounceTimer;
 };
 
 /**

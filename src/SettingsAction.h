@@ -108,6 +108,11 @@ public:
         const OptionAction& getSortByAxisAction() const { return _sortByAxisAction; }
         OptionAction& getSortByAxisAction() { return _sortByAxisAction; }
 
+        const DecimalAction& getUpperColorLimitAction() const { return _upperColorLimitAction; }
+        DecimalAction& getUpperColorLimitAction() { return _upperColorLimitAction; }
+        const DecimalAction& getLowerColorLimitAction() const { return _lowerColorLimitAction; }
+        DecimalAction& getLowerColorLimitAction() { return _lowerColorLimitAction; }
+
     protected:
         SettingsAction& _settingsOptions;
 
@@ -117,6 +122,8 @@ public:
         StringAction    _chartTitleAction;
         ToggleAction _switchAxesAction;
         ColorMap1DAction        _pointDatasetDimensionColorMapAction;
+        DecimalAction          _upperColorLimitAction;
+        DecimalAction          _lowerColorLimitAction;
         OptionAction        _sortByAxisAction;
     };
 

@@ -114,6 +114,7 @@ void LinePlotViewPlugin::init()
      _colorDatasetDebounceTimer.setSingleShot(true);
      _colorPointDatasetDimensionDebounceTimer.setSingleShot(true);
      _colorPointDatasetColorMapDebounceTimer.setSingleShot(true);
+     _colorMapRangeDebounceTimer.setSingleShot(true);
 
 
     const auto dataChanged = [this]() -> void {
@@ -262,6 +263,35 @@ void LinePlotViewPlugin::init()
     connect(&_colorPointDatasetColorMapDebounceTimer, &QTimer::timeout, this, [this]() {
 
         updateChartTrigger();
+        });
+
+    connect(&_settingsAction.getChartOptionsHolder().getUpperColorLimitAction(),
+        &DecimalAction::valueChanged,
+        this,
+        [this]() {
+            _colorMapRangeDebounceTimer.start(500);
+        });
+
+
+    connect(&_settingsAction.getChartOptionsHolder().getLowerColorLimitAction(),
+        &DecimalAction ::valueChanged,
+        this,
+        [this]() {
+            _colorMapRangeDebounceTimer.start(500);
+        });
+
+    connect(&_colorMapRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        if (_settingsAction.getChartOptionsHolder().getLowerColorLimitAction().getValue() > _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().getValue())
+        {
+
+            _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(_settingsAction.getChartOptionsHolder().getUpperColorLimitAction().getValue());
+            return;
+        }
+        else
+        {
+            updateChartTrigger();
+        }
+
         });
 
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(),

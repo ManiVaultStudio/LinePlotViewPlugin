@@ -114,6 +114,7 @@ void LinePlotViewPlugin::init()
      _colorDatasetDebounceTimer.setSingleShot(true);
      _colorPointDatasetDimensionDebounceTimer.setSingleShot(true);
      _colorPointDatasetColorMapDebounceTimer.setSingleShot(true);
+     _colorMapRangeDebounceTimer.setSingleShot(true);
 
 
     const auto dataChanged = [this]() -> void {
@@ -249,6 +250,42 @@ void LinePlotViewPlugin::init()
 
     connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
 
+        _blockcolorRangeTriggerMethod = true;
+        auto colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
+        if (colorDataset.isValid() && colorDataset->getDataType() == PointType)
+        {
+            Dataset<Points> colorPointDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
+            int colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
+            if (colorPointDatasetDimensionIndex>0)
+            {
+                std::vector<float> colorValues(colorPointDataset->getNumPoints());
+                colorPointDataset->extractDataForDimension(colorValues, colorPointDatasetDimensionIndex);
+                float maxValue = *std::max_element(colorValues.begin(), colorValues.end());
+                float minValue = *std::min_element(colorValues.begin(), colorValues.end());
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMinimum(minValue);
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMaximum(maxValue);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMinimum(minValue);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(maxValue);
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(maxValue);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(minValue);
+
+            }
+            else
+            {
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMinimum(0);
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMaximum(0);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMinimum(0);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(0);
+                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(0);
+                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(0);
+
+            }
+
+        }
+
+
+        _blockcolorRangeTriggerMethod = false;
+
         updateChartTrigger();
         });
 
@@ -262,6 +299,40 @@ void LinePlotViewPlugin::init()
     connect(&_colorPointDatasetColorMapDebounceTimer, &QTimer::timeout, this, [this]() {
 
         updateChartTrigger();
+        });
+
+    connect(&_settingsAction.getChartOptionsHolder().getUpperColorLimitAction(),
+        &DecimalAction::valueChanged,
+        this,
+        [this]() {
+            _colorMapRangeDebounceTimer.start(500);
+        });
+
+
+    connect(&_settingsAction.getChartOptionsHolder().getLowerColorLimitAction(),
+        &DecimalAction ::valueChanged,
+        this,
+        [this]() {
+            _colorMapRangeDebounceTimer.start(500);
+        });
+
+    connect(&_colorMapRangeDebounceTimer, &QTimer::timeout, this, [this]() {
+        if (_blockcolorRangeTriggerMethod)
+        {
+            //qInfo() << "LinePlotViewPlugin::updateChartTrigger: Skipping color range update due to debounce timer";
+            return;
+        }
+        if (_settingsAction.getChartOptionsHolder().getLowerColorLimitAction().getValue() > _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().getValue())
+        {
+
+            _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(_settingsAction.getChartOptionsHolder().getUpperColorLimitAction().getValue());
+            return;
+        }
+        else
+        {
+            updateChartTrigger();
+        }
+
         });
 
     connect(&_settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction(),
@@ -428,6 +499,8 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
         Dataset colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
         int colorPointDatasetDimensionIndex = -1;
         QString colormapselectedVal="";
+        float lowerColorLimit = _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().getValue();
+        float upperColorLimit = _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().getValue();
 
         if (colorDataset->getDataType() == PointType)
         {
@@ -441,6 +514,8 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             colorDataset->getId(),
             colorPointDatasetDimensionIndex,
             colormapselectedVal,
+            lowerColorLimit,
+            upperColorLimit,
             coordvalues,
             categoryValues
         );

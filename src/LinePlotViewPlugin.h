@@ -105,7 +105,7 @@ private:
     SettingsAction          _settingsAction;
     bool                    _isUpdating = false;
     bool                    _openGlEnabled = false;
-
+    bool _blockcolorRangeTriggerMethod = false;
     QTimer _dimensionXRangeDebounceTimer;
     QTimer _dimensionYRangeDebounceTimer;
     QTimer _smoothingTypeDebounceTimer;
@@ -114,6 +114,7 @@ private:
     QTimer  _colorDatasetDebounceTimer;
     QTimer  _colorPointDatasetDimensionDebounceTimer;
     QTimer  _colorPointDatasetColorMapDebounceTimer;
+    QTimer  _colorMapRangeDebounceTimer;
 };
 
 /**

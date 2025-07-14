@@ -510,6 +510,8 @@ void extractLinePlotData(
     QString colorDatasetID,
     int colorPointDatasetDimensionIndex,
     QString colormapSelectedVal,
+    float minValue,
+    float maxValue,
     QVector<float>& coordvalues,
     QVector<QPair<QString, QColor>>& categoryValues
 ) {
@@ -573,8 +575,8 @@ void extractLinePlotData(
                         
                         std::vector<float> pointsValues(numofPoints);
                         pointDataset->extractDataForDimension(pointsValues, colorPointDatasetDimensionIndex);
-                        float minValue = *std::min_element(pointsValues.begin(), pointsValues.end());
-                        float maxValue = *std::max_element(pointsValues.begin(), pointsValues.end());
+                        //float minValue = *std::min_element(pointsValues.begin(), pointsValues.end());
+                        //float maxValue = *std::max_element(pointsValues.begin(), pointsValues.end());
                        
 
                         for (unsigned int i = 0; i < numofPoints; ++i) {
@@ -588,7 +590,7 @@ void extractLinePlotData(
                     }
                     else
                     {
-                        qCritical() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
+                        //qCritical() << "extractLinePlotData: Invalid color point dataset dimension index:" << colorPointDatasetDimensionIndex;
                     }
                 }
                 else

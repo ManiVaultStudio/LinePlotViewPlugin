@@ -76,7 +76,13 @@ void LineChartWidget::setData(const QVariantMap& root)
         float y = m.value("y").toFloat();
         m_originalPoints.append({ x, y });
     }
-    setData(points, categories, statLine, title, lineColor);
+    // Instead of calling setData(...), set members directly and update
+    m_points = points;
+    m_categories = categories;
+    m_statLine = statLine;
+    m_title = title;
+    m_lineColor = lineColor;
+    update();
 }
 
 void LineChartWidget::resizeEvent(QResizeEvent*)

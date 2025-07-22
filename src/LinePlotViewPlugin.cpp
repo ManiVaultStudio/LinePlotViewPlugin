@@ -218,7 +218,7 @@ void LinePlotViewPlugin::init()
         &DatasetPickerAction::currentIndexChanged,
         this,
         [this]() {
-            _colorDatasetDebounceTimer.start(100);
+            _colorDatasetDebounceTimer.start(50);
         });
 
     connect(&_colorDatasetDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -245,7 +245,7 @@ void LinePlotViewPlugin::init()
         &DimensionPickerAction::currentDimensionIndexChanged,
         this,
         [this]() {
-            _colorPointDatasetDimensionDebounceTimer.start(100);
+            _colorPointDatasetDimensionDebounceTimer.start(50);
         });
 
     connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -293,7 +293,7 @@ void LinePlotViewPlugin::init()
         &ColorMap1DAction::imageChanged,
         this,
         [this]() {
-            _colorPointDatasetColorMapDebounceTimer.start(100);
+            _colorPointDatasetColorMapDebounceTimer.start(50);
         });
 
     connect(&_colorPointDatasetColorMapDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -305,7 +305,7 @@ void LinePlotViewPlugin::init()
         &DecimalAction::valueChanged,
         this,
         [this]() {
-            _colorMapRangeDebounceTimer.start(100);
+            _colorMapRangeDebounceTimer.start(50);
         });
 
 
@@ -313,7 +313,7 @@ void LinePlotViewPlugin::init()
         &DecimalAction ::valueChanged,
         this,
         [this]() {
-            _colorMapRangeDebounceTimer.start(100);
+            _colorMapRangeDebounceTimer.start(50);
         });
 
     connect(&_colorMapRangeDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -339,7 +339,7 @@ void LinePlotViewPlugin::init()
         &DimensionPickerAction::currentDimensionIndexChanged,
         this,
         [this]() {
-            _dimensionXRangeDebounceTimer.start(100);
+            _dimensionXRangeDebounceTimer.start(50);
         });
 
     connect(&_dimensionXRangeDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -353,7 +353,7 @@ void LinePlotViewPlugin::init()
         &DimensionPickerAction::currentDimensionIndexChanged,
         this,
         [this]() {
-            _dimensionYRangeDebounceTimer.start(100);
+            _dimensionYRangeDebounceTimer.start(50);
         });
 
     connect(&_dimensionYRangeDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -367,7 +367,7 @@ void LinePlotViewPlugin::init()
         &OptionAction::currentIndexChanged,
         this,
         [this]() {
-            _normalizationTypeDebounceTimer.start(100);
+            _normalizationTypeDebounceTimer.start(50);
         });
 
     connect(&_normalizationTypeDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -378,7 +378,7 @@ void LinePlotViewPlugin::init()
         &OptionAction::currentIndexChanged,
         this,
         [this]() {
-            _smoothingTypeDebounceTimer.start(100);
+            _smoothingTypeDebounceTimer.start(50);
         });
 
     connect(&_smoothingTypeDebounceTimer, &QTimer::timeout, this, [this]() {
@@ -390,7 +390,7 @@ void LinePlotViewPlugin::init()
          &IntegralAction::valueChanged,
          this,
          [this]() {
-             _smoothingWindowDebounceTimer.start(100);
+             _smoothingWindowDebounceTimer.start(50);
          });
 
      connect(&_smoothingWindowDebounceTimer, &QTimer::timeout, this, [this]() {

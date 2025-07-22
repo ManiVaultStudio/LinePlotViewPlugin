@@ -77,6 +77,23 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSortByAxisAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSortByAxisAction().initialize(QStringList{ "X", "Y" }, "X");
 
+    _chartOptionsHolder.getLowerColorLimitAction().setMaximum(1.00);
+    _chartOptionsHolder.getLowerColorLimitAction().setMinimum(-1.00);
+    _chartOptionsHolder.getLowerColorLimitAction().setMaximum(1.00);
+    _chartOptionsHolder.getLowerColorLimitAction().setMinimum(-1.00);
+    _chartOptionsHolder.getLowerColorLimitAction().setSingleStep(0.01);
+    _chartOptionsHolder.getLowerColorLimitAction().setSingleStep(0.01);
+    _chartOptionsHolder.getLowerColorLimitAction().setNumberOfDecimals(6);
+    _chartOptionsHolder.getLowerColorLimitAction().setNumberOfDecimals(6);
+
+    _chartOptionsHolder.getUpperColorLimitAction().setMaximum(1.00);
+    _chartOptionsHolder.getUpperColorLimitAction().setMinimum(-1.00);
+    _chartOptionsHolder.getUpperColorLimitAction().setMaximum(1.00);
+    _chartOptionsHolder.getUpperColorLimitAction().setMinimum(-1.00);
+    _chartOptionsHolder.getUpperColorLimitAction().setSingleStep(0.01);
+    _chartOptionsHolder.getUpperColorLimitAction().setSingleStep(0.01);
+    _chartOptionsHolder.getUpperColorLimitAction().setNumberOfDecimals(6);
+    _chartOptionsHolder.getUpperColorLimitAction().setNumberOfDecimals(6);
 
     _chartOptionsHolder.getSmoothingWindowAction().setMinimum(2);
     _chartOptionsHolder.getSmoothingWindowAction().setMaximum(1000);

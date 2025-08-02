@@ -39,6 +39,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getChartTitleAction().setSerializationName("LayerSurfer:ChartTitle");
     _chartOptionsHolder.getSwitchAxesAction().setSerializationName("LayerSurfer:SwitchAxes");
     _chartOptionsHolder.getSortByAxisAction().setSerializationName("LayerSurfer:SortByAxis");
+    _chartOptionsHolder.getShowEnvelopeAction().setSerializationName("LayerSurfer:ShowEnvelope");
 
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
     _datasetOptionsHolder.getColorDatasetAction().setToolTip("Cluster Dataset");
@@ -53,6 +54,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSmoothingWindowAction().setToolTip("Smoothing Window");
     _chartOptionsHolder.getChartTitleAction().setToolTip("Chart Title");
     _chartOptionsHolder.getSwitchAxesAction().setToolTip("Switch Axes");
+    _chartOptionsHolder.getShowEnvelopeAction().setToolTip("Show Envelope");
     _chartOptionsHolder.getSortByAxisAction().setToolTip("Sort By Axis");
 
     _datasetOptionsHolder.getPointDatasetAction().setFilterFunction([this](mv::Dataset<DatasetImpl> dataset) -> bool {
@@ -74,6 +76,8 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getChartTitleAction().setString("");
     _chartOptionsHolder.getSwitchAxesAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
     _chartOptionsHolder.getSwitchAxesAction().setChecked(false);
+    _chartOptionsHolder.getShowEnvelopeAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
+    _chartOptionsHolder.getShowEnvelopeAction().setChecked(true);
     _chartOptionsHolder.getSortByAxisAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSortByAxisAction().initialize(QStringList{ "X", "Y" }, "X");
 
@@ -152,7 +156,8 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     _lowerColorLimitAction(this, "Lower Color Limit"),
     _upperColorLimitAction(this, "Upper Color Limit"),
     _switchAxesAction(this, "Switch Axes"),
-    _sortByAxisAction(this, "Sort By Axis")
+    _sortByAxisAction(this, "Sort By Axis"),
+    _showEnvelopeAction(this, "Show Envelope")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -165,6 +170,7 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     addAction(&_pointDatasetDimensionColorMapAction);
     addAction(&_upperColorLimitAction);
     addAction(&_lowerColorLimitAction);
+    addAction(&_showEnvelopeAction);
     //addAction(&_switchAxesAction);
     //addAction(&_sortByAxisAction);
 }
@@ -183,6 +189,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getPointDatasetDimensionColorMapAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSwitchAxesAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getShowEnvelopeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().fromParentVariantMap(variantMap);
 }
 
@@ -200,6 +207,7 @@ QVariantMap SettingsAction::toVariantMap() const
     _datasetOptionsHolder.getColorPointDatasetDimensionAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getPointDatasetDimensionColorMapAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSwitchAxesAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getShowEnvelopeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().insertIntoVariantMap(variantMap);
 
     return variantMap;

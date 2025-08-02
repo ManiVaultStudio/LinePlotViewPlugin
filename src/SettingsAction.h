@@ -113,6 +113,9 @@ public:
         const DecimalAction& getLowerColorLimitAction() const { return _lowerColorLimitAction; }
         DecimalAction& getLowerColorLimitAction() { return _lowerColorLimitAction; }
 
+        const ToggleAction& getShowEnvelopeAction() const { return _showEnvelopeAction; }
+        ToggleAction& getShowEnvelopeAction() { return _showEnvelopeAction; }
+
     protected:
         SettingsAction& _settingsOptions;
 
@@ -125,6 +128,7 @@ public:
         DecimalAction          _upperColorLimitAction;
         DecimalAction          _lowerColorLimitAction;
         OptionAction        _sortByAxisAction;
+        ToggleAction        _showEnvelopeAction;
     };
 
 public:

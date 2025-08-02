@@ -89,38 +89,61 @@ void LineChartWidget::resizeEvent(QResizeEvent*)
 {
     updatePlotArea();
 }
-
+void LineChartWidget::setShowEnvelope(bool show)
+{
+    if (m_showEnvelope != show) {
+        m_showEnvelope = show;
+        update(); // Redraw
+    }
+}
 void LineChartWidget::updatePlotArea()
 {
     // Margins: left, right, top, bottom
     int l = 60, r = 30, t = 60, b = 40;
     m_plotArea = QRectF(l, t, width() - l - r, height() - t - b);
 
-    // Compute data bounds using both smoothed and original data
+    // Compute data bounds
     if (m_points.size() < 2 && m_originalPoints.size() < 2) {
         m_xMin = m_xMax = m_yMin = m_yMax = 0;
         return;
     }
 
-    // Start with smoothed data if available, else original
     bool hasSmoothed = m_points.size() >= 2;
     bool hasOriginal = m_originalPoints.size() >= 2;
 
-    double xMin = hasSmoothed ? m_points[0].first : m_originalPoints[0].first;
-    double xMax = xMin;
-    double yMin = hasSmoothed ? m_points[0].second : m_originalPoints[0].second;
-    double yMax = yMin;
+    double xMin, xMax, yMin, yMax;
 
-    if (hasSmoothed) {
-        for (const auto& pt : m_points) {
-            xMin = std::min(xMin, (double)pt.first);
-            xMax = std::max(xMax, (double)pt.first);
-            yMin = std::min(yMin, (double)pt.second);
-            yMax = std::max(yMax, (double)pt.second);
+    if (m_showEnvelope && hasOriginal) {
+        // Use both smoothed and original for bounds
+        xMin = hasSmoothed ? m_points[0].first : m_originalPoints[0].first;
+        xMax = xMin;
+        yMin = hasSmoothed ? m_points[0].second : m_originalPoints[0].second;
+        yMax = yMin;
+
+        if (hasSmoothed) {
+            for (const auto& pt : m_points) {
+                xMin = std::min(xMin, (double)pt.first);
+                xMax = std::max(xMax, (double)pt.first);
+                yMin = std::min(yMin, (double)pt.second);
+                yMax = std::max(yMax, (double)pt.second);
+            }
+        }
+        if (hasOriginal) {
+            for (const auto& pt : m_originalPoints) {
+                xMin = std::min(xMin, (double)pt.first);
+                xMax = std::max(xMax, (double)pt.first);
+                yMin = std::min(yMin, (double)pt.second);
+                yMax = std::max(yMax, (double)pt.second);
+            }
         }
     }
-    if (hasOriginal) {
-        for (const auto& pt : m_originalPoints) {
+    else {
+        // Only use smoothed data for bounds
+        xMin = m_points[0].first;
+        xMax = xMin;
+        yMin = m_points[0].second;
+        yMax = yMin;
+        for (const auto& pt : m_points) {
             xMin = std::min(xMin, (double)pt.first);
             xMax = std::max(xMax, (double)pt.first);
             yMin = std::min(yMin, (double)pt.second);
@@ -255,7 +278,7 @@ void LineChartWidget::paintEvent(QPaintEvent*)
         }
     }
     // === SMOOTH GREY AREA BETWEEN SMOOTHED AND ORIGINAL (ENVELOPE) ===
-    if (!m_points.isEmpty() && !m_originalPoints.isEmpty()) {
+    if (m_showEnvelope && !m_points.isEmpty() && !m_originalPoints.isEmpty()) {
         QVector<float> allX;
         // Collect all unique X values from both lines
         for (const auto& pt : m_points) allX.push_back(pt.first);

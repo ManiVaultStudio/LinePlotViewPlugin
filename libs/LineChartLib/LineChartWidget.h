@@ -20,7 +20,7 @@ public:
         const QString& title = QString(),
         const QColor& lineColor = QColor("#1f77b4"));
     void setData(const QVariantMap& root);
-
+    void setShowEnvelope(bool show);
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
@@ -38,7 +38,7 @@ private:
     QVector<QPair<float, float>> m_originalPoints;
     QRectF m_plotArea;
     double m_xMin = 0, m_xMax = 0, m_yMin = 0, m_yMax = 0;
-
+    bool m_showEnvelope = true;
     int m_hoveredLineIdx = -1;
     int m_hoveredBarIdx = -1;
 

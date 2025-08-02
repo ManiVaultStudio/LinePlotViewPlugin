@@ -211,6 +211,14 @@ void LinePlotViewPlugin::init()
     const auto switchAxesChanged = [this]() {updateChartTrigger(); };
     connect(&_settingsAction.getChartOptionsHolder().getSwitchAxesAction(), &ToggleAction::toggled, this, switchAxesChanged);
 
+    const auto showEnvelopeChanged = [this]() {
+        if (_lineChartWidget)
+        {
+            _lineChartWidget->setShowEnvelope(_settingsAction.getChartOptionsHolder().getShowEnvelopeAction().isChecked());
+        }
+        };
+    connect(&_settingsAction.getChartOptionsHolder().getShowEnvelopeAction(), &ToggleAction::toggled, this, showEnvelopeChanged);
+
     const auto sortAxesChanged = [this]() {updateChartTrigger(); };
     connect(&_settingsAction.getChartOptionsHolder().getSortByAxisAction(), &OptionAction::currentIndexChanged, this, sortAxesChanged);
 
@@ -600,6 +608,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     if (_openGlEnabled)
     {
         _lineChartWidget->setData(root.toMap());
+
     }
     else
     {

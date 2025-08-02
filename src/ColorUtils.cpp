@@ -147,10 +147,10 @@ QColor getColorFromColormap(float t, ColormapTypeValue type, float minVal, float
     t = std::clamp(t, 0.0f, 1.0f);
 
     auto pick = [t](const auto& arr) {
-        int idx = static_cast<int>(t * (arr.size() - 1) + 0.5f);
+        int idx = static_cast<int>(t * (arr.size() - 1));
         idx = std::clamp(idx, 0, static_cast<int>(arr.size() - 1));
         return arr[idx];
-    };
+        };
 
     switch (type) {
     case ColormapTypeValue::BlackWhite:

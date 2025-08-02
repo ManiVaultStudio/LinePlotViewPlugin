@@ -256,6 +256,7 @@ void LinePlotViewPlugin::init()
             _colorPointDatasetDimensionDebounceTimer.start(50);
         });
 
+    // In the _colorPointDatasetDimensionDebounceTimer timeout lambda:
     connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
 
         _blockcolorRangeTriggerMethod = true;
@@ -264,7 +265,7 @@ void LinePlotViewPlugin::init()
         {
             Dataset<Points> colorPointDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
             int colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
-            if (colorPointDatasetDimensionIndex>0)
+            if (colorPointDatasetDimensionIndex >= 0)
             {
                 std::vector<float> colorValues(colorPointDataset->getNumPoints());
                 colorPointDataset->extractDataForDimension(colorValues, colorPointDatasetDimensionIndex);
@@ -290,7 +291,6 @@ void LinePlotViewPlugin::init()
             }
 
         }
-
 
         _blockcolorRangeTriggerMethod = false;
 
@@ -515,6 +515,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
             colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
             colormapselectedVal = _settingsAction.getChartOptionsHolder().getPointDatasetDimensionColorMapAction().getColorMap();
         }
+
         extractLinePlotData(
             _currentDataSet,
             dimensionXIndex,

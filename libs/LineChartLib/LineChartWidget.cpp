@@ -96,6 +96,13 @@ void LineChartWidget::setShowEnvelope(bool show)
         update(); // Redraw
     }
 }
+void LineChartWidget::setShowStatLine(bool show)
+{
+    if (m_showStatLine != show) {
+        m_showStatLine = show;
+        update();
+    }
+}
 void LineChartWidget::updatePlotArea()
 {
     // Margins: left, right, top, bottom
@@ -331,7 +338,7 @@ void LineChartWidget::paintEvent(QPaintEvent*)
     }
 
     // === STAT LINE ===
-    if (!m_statLine.isEmpty()) {
+    if (m_showStatLine && !m_statLine.isEmpty()) {
         double x1 = m_statLine.value("start_x").toDouble();
         double y1 = m_statLine.value("start_y").toDouble();
         double x2 = m_statLine.value("end_x").toDouble();

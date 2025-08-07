@@ -40,6 +40,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSwitchAxesAction().setSerializationName("LayerSurfer:SwitchAxes");
     _chartOptionsHolder.getSortByAxisAction().setSerializationName("LayerSurfer:SortByAxis");
     _chartOptionsHolder.getShowEnvelopeAction().setSerializationName("LayerSurfer:ShowEnvelope");
+    _chartOptionsHolder.getShowStatLineAction().setSerializationName("LayerSurfer:ShowStatLine");
 
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
     _datasetOptionsHolder.getColorDatasetAction().setToolTip("Cluster Dataset");
@@ -56,6 +57,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSwitchAxesAction().setToolTip("Switch Axes");
     _chartOptionsHolder.getShowEnvelopeAction().setToolTip("Show Envelope");
     _chartOptionsHolder.getSortByAxisAction().setToolTip("Sort By Axis");
+    _chartOptionsHolder.getShowStatLineAction().setToolTip("Show Stat Line");
 
     _datasetOptionsHolder.getPointDatasetAction().setFilterFunction([this](mv::Dataset<DatasetImpl> dataset) -> bool {
         return dataset->getDataType() == PointType;
@@ -78,6 +80,8 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getSwitchAxesAction().setChecked(false);
     _chartOptionsHolder.getShowEnvelopeAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
     _chartOptionsHolder.getShowEnvelopeAction().setChecked(true);
+    _chartOptionsHolder.getShowStatLineAction().setDefaultWidgetFlags(ToggleAction::CheckBox);
+    _chartOptionsHolder.getShowStatLineAction().setChecked(false);
     _chartOptionsHolder.getSortByAxisAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSortByAxisAction().initialize(QStringList{ "X", "Y" }, "X");
 
@@ -157,7 +161,8 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     _upperColorLimitAction(this, "Upper Color Limit"),
     _switchAxesAction(this, "Switch Axes"),
     _sortByAxisAction(this, "Sort By Axis"),
-    _showEnvelopeAction(this, "Show Envelope")
+    _showEnvelopeAction(this, "Show Envelope"),
+    _showStatLineAction(this, "Show Stat Line")
 {
     setText("Dataset1 Options");
     setIcon(mv::util::StyledIcon("database"));
@@ -171,6 +176,7 @@ inline SettingsAction::ChartOptionsHolder::ChartOptionsHolder(SettingsAction& se
     addAction(&_upperColorLimitAction);
     addAction(&_lowerColorLimitAction);
     addAction(&_showEnvelopeAction);
+    addAction(&_showStatLineAction);
     //addAction(&_switchAxesAction);
     //addAction(&_sortByAxisAction);
 }
@@ -190,6 +196,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _chartOptionsHolder.getPointDatasetDimensionColorMapAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSwitchAxesAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getShowEnvelopeAction().fromParentVariantMap(variantMap);
+    _chartOptionsHolder.getShowStatLineAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().fromParentVariantMap(variantMap);
 }
 
@@ -208,6 +215,7 @@ QVariantMap SettingsAction::toVariantMap() const
     _chartOptionsHolder.getPointDatasetDimensionColorMapAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSwitchAxesAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getShowEnvelopeAction().insertIntoVariantMap(variantMap);
+    _chartOptionsHolder.getShowStatLineAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().insertIntoVariantMap(variantMap);
 
     return variantMap;

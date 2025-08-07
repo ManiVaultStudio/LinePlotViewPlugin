@@ -116,6 +116,9 @@ public:
         const ToggleAction& getShowEnvelopeAction() const { return _showEnvelopeAction; }
         ToggleAction& getShowEnvelopeAction() { return _showEnvelopeAction; }
 
+        const ToggleAction& getShowStatLineAction() const { return _showStatLineAction; }
+        ToggleAction& getShowStatLineAction() { return _showStatLineAction; }
+
     protected:
         SettingsAction& _settingsOptions;
 
@@ -129,6 +132,7 @@ public:
         DecimalAction          _lowerColorLimitAction;
         OptionAction        _sortByAxisAction;
         ToggleAction        _showEnvelopeAction;
+        ToggleAction        _showStatLineAction;
     };
 
 public:

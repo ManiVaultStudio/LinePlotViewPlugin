@@ -219,6 +219,14 @@ void LinePlotViewPlugin::init()
         };
     connect(&_settingsAction.getChartOptionsHolder().getShowEnvelopeAction(), &ToggleAction::toggled, this, showEnvelopeChanged);
 
+    const auto showStatLineChanged = [this]() {
+        if (_lineChartWidget)
+        {
+            _lineChartWidget->setShowEnvelope(_settingsAction.getChartOptionsHolder().getShowStatLineAction().isChecked());
+        }
+        };
+    connect(&_settingsAction.getChartOptionsHolder().getShowStatLineAction(), &ToggleAction::toggled, this, showStatLineChanged);
+
     const auto sortAxesChanged = [this]() {updateChartTrigger(); };
     connect(&_settingsAction.getChartOptionsHolder().getSortByAxisAction(), &OptionAction::currentIndexChanged, this, sortAxesChanged);
 

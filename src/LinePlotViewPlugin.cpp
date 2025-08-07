@@ -222,7 +222,7 @@ void LinePlotViewPlugin::init()
     const auto showStatLineChanged = [this]() {
         if (_lineChartWidget)
         {
-            _lineChartWidget->setShowEnvelope(_settingsAction.getChartOptionsHolder().getShowStatLineAction().isChecked());
+            _lineChartWidget->setShowStatLine(_settingsAction.getChartOptionsHolder().getShowStatLineAction().isChecked());
         }
         };
     connect(&_settingsAction.getChartOptionsHolder().getShowStatLineAction(), &ToggleAction::toggled, this, showStatLineChanged);

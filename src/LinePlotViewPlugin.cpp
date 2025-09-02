@@ -474,7 +474,7 @@ void LinePlotViewPlugin::dataConvertChartUpdate()
     QVariant root;
     if (!_currentDataSet.isValid())
     {
-        qCritical() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
+        qWarning() << "LinePlotViewPlugin::convertDataAndUpdateChart: No valid dataset to convert";
     }
     else
     {

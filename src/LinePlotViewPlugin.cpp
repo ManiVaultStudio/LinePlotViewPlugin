@@ -25,7 +25,7 @@ using namespace mv;
 LinePlotViewPlugin::LinePlotViewPlugin(const PluginFactory* factory) :
     ViewPlugin(factory),
     _chartWidget(nullptr),
-    _dropWidget(nullptr),
+    //_dropWidget(nullptr),
     _settingsAction(*this),
     _currentDataSet(nullptr)
 {
@@ -52,20 +52,20 @@ void LinePlotViewPlugin::init()
     {
         _lineChartWidget = new LineChartWidget(&getWidget());
         layout->addWidget(_lineChartWidget, 1);
-        _dropWidget = new DropWidget(_lineChartWidget);
+        //_dropWidget = new DropWidget(_lineChartWidget);
     }
     else
     {
         _chartWidget = new ChartWidget(this);
         _chartWidget->setPage(":line_chart/line_chart.html", "qrc:/line_chart/");
         layout->addWidget(_chartWidget, 1);
-        _dropWidget = new DropWidget(_chartWidget);
+        //_dropWidget = new DropWidget(_chartWidget);
     }
     
     getWidget().setLayout(layout);
 
-    _dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
-
+    //_dropWidget->setDropIndicatorWidget(new DropWidget::DropIndicatorWidget(&getWidget(), "No data loaded", "Drag the LinePlotViewData in this view"));
+    /*
     _dropWidget->initialize([this](const QMimeData* mimeData) -> DropWidget::DropRegions {
 
         DropWidget::DropRegions dropRegions;
@@ -105,7 +105,7 @@ void LinePlotViewPlugin::init()
 
         return dropRegions;
         });
-
+    */
      _dimensionXRangeDebounceTimer.setSingleShot(true);
      _dimensionYRangeDebounceTimer.setSingleShot(true);
      _smoothingTypeDebounceTimer.setSingleShot(true);
@@ -129,12 +129,20 @@ void LinePlotViewPlugin::init()
 
     connect(&_currentDataSet, &Dataset<Points>::dataChanged, this, dataChanged);
 
+    const auto dataMessageChanged = [this](const QString& message) -> void {
+        if (_lineChartWidget)
+        {
+            _lineChartWidget->setNoDataMessage(message);
+        }
+        };
+    connect(&_settingsAction.getInitDisplayMessageAction(), &StringAction::stringChanged, this, dataMessageChanged);
+
     const auto pointDatasetChanged = [this]() -> void {
         auto dataset = _settingsAction.getDatasetOptionsHolder().getPointDatasetAction().getCurrentDataset();
         if (dataset.isValid()) {
 
             _currentDataSet = dataset;
-            _dropWidget->setShowDropIndicator(false);
+            //_dropWidget->setShowDropIndicator(false);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionXSelectionAction().setPointsDataset(_currentDataSet);
             _settingsAction.getDatasetOptionsHolder().getDataDimensionYSelectionAction().setPointsDataset(_currentDataSet);
             if (_currentDataSet->getNumDimensions() >= 2)

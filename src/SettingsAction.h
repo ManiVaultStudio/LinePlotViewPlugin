@@ -140,6 +140,7 @@ public:
 
     DatasetOptionsHolder& getDatasetOptionsHolder() { return _datasetOptionsHolder; }
     ChartOptionsHolder& getChartOptionsHolder() { return _chartOptionsHolder; }
+    StringAction& getInitDisplayMessageAction() { return _initDisplayMessageAction; }
 
 public:
     void fromVariantMap(const QVariantMap& variantMap) override;
@@ -152,6 +153,7 @@ protected:
     mv::CoreInterface* _core;
     DatasetOptionsHolder _datasetOptionsHolder;
     ChartOptionsHolder _chartOptionsHolder;
+    StringAction         _initDisplayMessageAction;
     
 
     friend class ChannelAction;

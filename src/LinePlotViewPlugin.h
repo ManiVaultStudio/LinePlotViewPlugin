@@ -100,7 +100,7 @@ public:
 private:
     ChartWidget*            _chartWidget;       // WebWidget that sets up the HTML page
     LineChartWidget*         _lineChartWidget;  // Widget that contains the c++ line chart
-    DropWidget*             _dropWidget;        // Widget for drag and drop behavior
+    //DropWidget*             _dropWidget;        // Widget for drag and drop behavior
     mv::Dataset<Points>     _currentDataSet;    // Reference to currently shown data set
     SettingsAction          _settingsAction;
     bool                    _isUpdating = false;

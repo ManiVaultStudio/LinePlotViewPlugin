@@ -22,11 +22,13 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     WidgetAction(&LinePlotViewPlugin, "LinePlotViewPlugin"),
     _viewerPlugin(LinePlotViewPlugin),
     _datasetOptionsHolder(*this),
-    _chartOptionsHolder(*this)
+    _chartOptionsHolder(*this),
+    _initDisplayMessageAction(this, "Initialize Display Message")
 {
     setSerializationName("LinePlotViewPlugin:Settings");
     _datasetOptionsHolder.getPointDatasetAction().setSerializationName("LayerSurfer:PointDataset");
     _datasetOptionsHolder.getColorDatasetAction().setSerializationName("LayerSurfer:ClusterDataset");
+    _initDisplayMessageAction.setSerializationName("LayerSurfer:InitDisplayMessage");
 
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setSerializationName("LayerSurfer:DataDimensionXSelection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setSerializationName("LayerSurfer:DataDimensionYSelection");
@@ -44,6 +46,7 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
 
     _datasetOptionsHolder.getPointDatasetAction().setToolTip("Point Dataset");
     _datasetOptionsHolder.getColorDatasetAction().setToolTip("Cluster Dataset");
+    _initDisplayMessageAction.setToolTip("Initialize Display Message");
 
     _datasetOptionsHolder.getDataDimensionXSelectionAction().setToolTip("Data Dimension X Selection");
     _datasetOptionsHolder.getDataDimensionYSelectionAction().setToolTip("Data Dimension Y Selection");
@@ -84,6 +87,9 @@ SettingsAction::SettingsAction(LinePlotViewPlugin& LinePlotViewPlugin) :
     _chartOptionsHolder.getShowStatLineAction().setChecked(false);
     _chartOptionsHolder.getSortByAxisAction().setDefaultWidgetFlags(OptionAction::ComboBox);
     _chartOptionsHolder.getSortByAxisAction().initialize(QStringList{ "X", "Y" }, "X");
+    _initDisplayMessageAction.setDefaultWidgetFlags(OptionAction::LineEdit);
+    _initDisplayMessageAction.setString("No data available or insufficient data for chart.");
+    //_initDisplayMessageAction.setString("Draw a line on a scatterplot to begin exploration.");
 
     _chartOptionsHolder.getLowerColorLimitAction().setMaximum(1.00);
     _chartOptionsHolder.getLowerColorLimitAction().setMinimum(-1.00);
@@ -198,6 +204,7 @@ void SettingsAction::fromVariantMap(const QVariantMap& variantMap)
     _chartOptionsHolder.getShowEnvelopeAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getShowStatLineAction().fromParentVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().fromParentVariantMap(variantMap);
+    _initDisplayMessageAction.fromParentVariantMap(variantMap);
 }
 
 QVariantMap SettingsAction::toVariantMap() const
@@ -217,6 +224,7 @@ QVariantMap SettingsAction::toVariantMap() const
     _chartOptionsHolder.getShowEnvelopeAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getShowStatLineAction().insertIntoVariantMap(variantMap);
     _chartOptionsHolder.getSortByAxisAction().insertIntoVariantMap(variantMap);
+    _initDisplayMessageAction.insertIntoVariantMap(variantMap);
 
     return variantMap;
 }

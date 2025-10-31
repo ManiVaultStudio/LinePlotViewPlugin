@@ -212,7 +212,7 @@ void LineChartWidget::paintEvent(QPaintEvent*)
     if (m_points.size() < 2) {
         p.setPen(QColor("#888"));
         p.setFont(QFont("sans", 18, QFont::Bold));
-        p.drawText(rect(), Qt::AlignCenter, "No data available or insufficient data for chart.");
+        p.drawText(rect(), Qt::AlignCenter, m_noDataMessage);
         return;
     }
 
@@ -504,7 +504,11 @@ int LineChartWidget::findCategoryBarAt(const QPoint& pos) const
     }
     return -1;
 }
-
+void LineChartWidget::setNoDataMessage(const QString& msg)
+{
+    m_noDataMessage = msg;
+    update();
+}
 void LineChartWidget::showTooltip(const QPoint& pos, const QString& text)
 {
     QToolTip::showText(mapToGlobal(pos), text, this);

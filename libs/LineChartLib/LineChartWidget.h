@@ -22,6 +22,7 @@ public:
     void setData(const QVariantMap& root);
     void setShowEnvelope(bool show);
     void setShowStatLine(bool show);
+    void setNoDataMessage(const QString& msg);
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
@@ -43,7 +44,7 @@ private:
     bool m_showStatLine = false;
     int m_hoveredLineIdx = -1;
     int m_hoveredBarIdx = -1;
-
+    QString m_noDataMessage = "No data available or insufficient data for chart.";
     void updatePlotArea();
     QPointF dataToScreen(float x, float y) const;
     float screenToDataX(int px) const;

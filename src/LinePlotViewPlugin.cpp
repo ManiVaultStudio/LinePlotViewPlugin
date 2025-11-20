@@ -272,28 +272,37 @@ void LinePlotViewPlugin::init()
             _colorPointDatasetDimensionDebounceTimer.start(50);
         });
 
-    // In the _colorPointDatasetDimensionDebounceTimer timeout lambda:
     connect(&_colorPointDatasetDimensionDebounceTimer, &QTimer::timeout, this, [this]() {
-
         _blockcolorRangeTriggerMethod = true;
         auto colorDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
         if (colorDataset.isValid() && colorDataset->getDataType() == PointType)
         {
-            Dataset<Points> colorPointDataset = _settingsAction.getDatasetOptionsHolder().getColorDatasetAction().getCurrentDataset();
+            Dataset<Points> colorPointDataset = colorDataset;
             int colorPointDatasetDimensionIndex = _settingsAction.getDatasetOptionsHolder().getColorPointDatasetDimensionAction().getCurrentDimensionIndex();
-            if (colorPointDatasetDimensionIndex >= 0)
+            if (colorPointDataset.isValid() && colorPointDatasetDimensionIndex >= 0)
             {
                 std::vector<float> colorValues(colorPointDataset->getNumPoints());
                 colorPointDataset->extractDataForDimension(colorValues, colorPointDatasetDimensionIndex);
-                float maxValue = *std::max_element(colorValues.begin(), colorValues.end());
-                float minValue = *std::min_element(colorValues.begin(), colorValues.end());
-                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMinimum(minValue);
-                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMaximum(maxValue);
-                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMinimum(minValue);
-                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(maxValue);
-                _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(maxValue);
-                _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(minValue);
-
+                if (colorValues.empty())
+                {
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMinimum(0);
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMaximum(0);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMinimum(0);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(0);
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(0);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(0);
+                }
+                else
+                {
+                    float maxValue = *std::max_element(colorValues.begin(), colorValues.end());
+                    float minValue = *std::min_element(colorValues.begin(), colorValues.end());
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMinimum(minValue);
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setMaximum(maxValue);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMinimum(minValue);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(maxValue);
+                    _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(maxValue);
+                    _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(minValue);
+                }
             }
             else
             {
@@ -303,13 +312,9 @@ void LinePlotViewPlugin::init()
                 _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setMaximum(0);
                 _settingsAction.getChartOptionsHolder().getUpperColorLimitAction().setValue(0);
                 _settingsAction.getChartOptionsHolder().getLowerColorLimitAction().setValue(0);
-
             }
-
         }
-
         _blockcolorRangeTriggerMethod = false;
-
         updateChartTrigger();
         });
 

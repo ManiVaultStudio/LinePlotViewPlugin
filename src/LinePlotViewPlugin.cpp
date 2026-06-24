@@ -1,5 +1,5 @@
 #include "LinePlotViewPlugin.h"
-
+#include <util/Serialization.h>
 #include "ChartWidget.h"
 #include "../libs/LineChartLib/LineChartWidget.h"
 #include "LinePlotUtils.h"
